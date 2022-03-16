@@ -1,6 +1,6 @@
-# Mean-Reversion-Trading-Team-Project-Semester-1-2022
-Repository for the Trading Team Project based on Mean Reversion for QFin Semester 1 2022
+# Mean Reversion Trading Team Project Semester 1 2022
 
+Repository for the Trading Team Project based on Mean Reversion for QFin Semester 1 2022
 
 Requirements: python + pip 
 
@@ -26,3 +26,11 @@ Useful Resources:
   - https://www.youtube.com/watch?v=IK7pnQW20M4&ab_channel=FinancialSource
   - https://www.youtube.com/watch?v=9yTrfhvJhUw&ab_channel=CriticalTrading
   - https://www.youtube.com/watch?v=0PfgqNYTl4Q&ab_channel=MattMacarty
+  
+# To Do
+ - [x] Add discord webhook for repo
+ - [x] Set up repo
+   - [ ] Add Kai to repo
+ - [ ] Figure out regular meeting time
+ - [ ] Come up with 5 good and 5 bad strategies (each)
+ - [ ] Come up with actual roadmap
