@@ -4,13 +4,17 @@ Repository for the Trading Team Project based on Mean Reversion for QFin Semeste
 
 Requirements: python + pip 
 
-Installation and Run:
+Install dependencies:
 
-    1. `pip install -r requirements.txt`
+`pip install -r requirements.txt`
 
-    2. Download extra data (Optional) using API_Interface.py
+Run:
 
-    3. python momentum_algorithm.py 
+`python momentum_algorithm.py`
+
+Datasets used can be changed within momentum_algorithm.py.
+Download extra data (Optional) using API_Interface.py
+
 
 ## To Do
  - [x] Add discord webhook for repo
