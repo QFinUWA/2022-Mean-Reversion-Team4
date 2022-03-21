@@ -20,9 +20,8 @@ Download extra data (Optional) using API_Interface.py
  - [x] Add discord webhook for repo
  - [x] Set up repo
    - [x] Add Kai to repo
- - [ ] Figure out regular meeting time
- - [ ] Come up with 5 good and 5 bad strategies (each)
- - [ ] Come up with actual roadmap
+ - [x] Figure out regular meeting time (Monday 14:00 each week)
+ - [x] Come up with actual roadmap
  - [ ] Determine mean reversion strategy
  - [ ] Determine meme reversion strategy
    - This could be for very low volume stocks, or only apply for edge cases
