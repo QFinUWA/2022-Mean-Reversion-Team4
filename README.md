@@ -6,13 +6,31 @@ Requirements: python + pip
 
 Installation and Run:
 
-    1. pip install -r requirements.txt
+    1. `pip install -r requirements.txt`
 
     2. Download extra data (Optional) using API_Interface.py
 
     3. python momentum_algorithm.py 
 
-Useful Resources:
+## To Do
+ - [x] Add discord webhook for repo
+ - [x] Set up repo
+   - [x] Add Kai to repo
+ - [ ] Figure out regular meeting time
+ - [ ] Come up with 5 good and 5 bad strategies (each)
+ - [ ] Come up with actual roadmap
+ - [ ] Determine mean reversion strategy
+ - [ ] Determine meme reversion strategy
+   - This could be for very low volume stocks, or only apply for edge cases
+   - Or just completely seperate module
+ - [ ] Develop prototype algorithm
+ - [ ] Write optimisation testing scripts
+ - [ ] Optimise parameters
+ - [ ] ???
+ - [ ] Profit
+ - [ ] Write report
+
+## Useful Resources:
 
 - Pandas Documentation: https://pandas.pydata.org/docs/
 - Bollinger Band Generation in Pandas: https://www.learnpythonwithrune.org/pandas-calculate-and-plot-the-bollinger-bands-for-a-stock/
@@ -27,10 +45,3 @@ Useful Resources:
   - https://www.youtube.com/watch?v=9yTrfhvJhUw&ab_channel=CriticalTrading
   - https://www.youtube.com/watch?v=0PfgqNYTl4Q&ab_channel=MattMacarty
   
-# To Do
- - [x] Add discord webhook for repo
- - [x] Set up repo
-   - [ ] Add Kai to repo
- - [ ] Figure out regular meeting time
- - [ ] Come up with 5 good and 5 bad strategies (each)
- - [ ] Come up with actual roadmap
