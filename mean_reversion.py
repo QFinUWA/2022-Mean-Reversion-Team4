@@ -20,7 +20,13 @@ logic() function:
 '''
 
 def logic(account, lookback): # Logic function to be used for each time interval in backtest 
-    
+    # how we can create a variable
+    try:
+       account.new_var += 1
+    except AttributeError:
+        account.new_var = 0
+
+        
 '''
 preprocess_data() function:
     Context: Called once at the beginning of the backtest. TOTALLY OPTIONAL. 
