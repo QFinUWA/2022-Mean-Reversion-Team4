@@ -2,5 +2,5 @@ __pycache__/
 venv/
 API_Key.txt
 tempCodeRunnerFile.py
-results/*.html
+*.html
 results/Test_Results.csv
