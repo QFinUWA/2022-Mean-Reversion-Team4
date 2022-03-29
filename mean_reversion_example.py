@@ -9,6 +9,9 @@ from backtester import API_Interface as api
 training_period = 20 # How far the rolling average takes into calculation
 standard_deviations = 3.5 # Number of Standard Deviations from the mean the Bollinger Bands sit
 
+stock_vars = {}
+
+
 '''
 logic() function:
     Context: Called for every row in the input data.
@@ -20,8 +23,10 @@ logic() function:
 '''
 
 def logic(account, lookback): # Logic function to be used for each time interval in backtest 
-    
+
+
     today = len(lookback)-1
+
     if(today > training_period): # If the lookback is long enough to calculate the Bollinger Bands
 
         if(lookback['close'][today] < lookback['BOLD'][today]): # If current price is below lower Bollinger Band, enter a long position
@@ -59,6 +64,7 @@ def preprocess_data(list_of_stocks):
     return list_of_stocks_processed
 
 if __name__ == "__main__":
+    start = time.time()
     # list_of_stocks = ["TSLA_2020-03-01_2022-01-20_1min"] 
     list_of_stocks = ["TSLA_2020-03-09_2022-01-28_15min", "AAPL_2020-03-24_2022-02-12_15min"] # List of stock data csv's to be tested, located in "data/" folder 
     list_of_stocks_proccessed = preprocess_data(list_of_stocks) # Preprocess the data
@@ -68,3 +74,4 @@ if __name__ == "__main__":
     print("standard deviations " + str(standard_deviations))
     df = pd.DataFrame(list(results), columns=["Buy and Hold","Strategy","Longs","Sells","Shorts","Covers","Stdev_Strategy","Stdev_Hold","Stock"]) # Create dataframe of results
     df.to_csv("results/Test_Results.csv", index=False) # Save results to csv
+    
