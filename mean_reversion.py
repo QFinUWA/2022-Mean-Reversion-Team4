@@ -9,6 +9,15 @@ from backtester import API_Interface as api
 training_period = 20 # How far the rolling average takes into calculation
 standard_deviations = 3.5 # Number of Standard Deviations from the mean the Bollinger Bands sit
 
+def stochastic_oscillator():
+    pass
+
+def relative_strength_index():
+    pass
+
+def internal_bar_strength():
+    pass
+
 '''
 logic() function:
     Context: Called for every row in the input data.
@@ -20,6 +29,7 @@ logic() function:
 '''
 
 def logic(account, lookback): # Logic function to be used for each time interval in backtest 
+    pass
     
 '''
 preprocess_data() function:
