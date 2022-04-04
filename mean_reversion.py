@@ -12,8 +12,30 @@ standard_deviations = 3.5 # Number of Standard Deviations from the mean the Boll
 def stochastic_oscillator():
     pass
 
-def relative_strength_index():
-    pass
+def relative_strength_index(opens, closes, periods=14):
+    
+    deltas = pd.Series(closes[-periods:]) - pd.Series(opens[-(periods+1):-1])
+
+    gain_sum = 0
+    loss_sum = 0
+    for delta in deltas:
+        if delta > 0:
+            gain_sum += delta
+        if delta < 0:
+            loss_sum -= delta
+    
+    #print(deltas)
+    # No losses is always 100 RSI, also avoids zerodivide exception
+    if loss_sum == 0:
+        return 100
+
+    avg_gain = gain_sum/periods
+    avg_loss = loss_sum/periods
+    
+    relative_strength = avg_gain / avg_loss
+    rsi = 100 - ( 100 / (1 + relative_strength ) )
+    #print(f"{rsi=}")
+    return rsi
 
 def internal_bar_strength():
     pass
@@ -29,11 +51,46 @@ logic() function:
 '''
 
 def logic(account, lookback): # Logic function to be used for each time interval in backtest 
-    # how we can create a variable
-    try:
-       account.new_var += 1
-    except AttributeError:
-        account.new_var = 0
+    
+    interval_id = len(lookback) - 1
+    today = lookback["date"][interval_id].date()
+
+    is_first_day = False
+    if interval_id == 0:
+        # first day has no previous day
+        is_new_day = True
+        is_first_day = True
+    else:
+        # if previous interval is previous day, it is a new day
+        is_new_day = today != lookback["date"][interval_id-1].date()
+
+    # Store the opening and closing prices of every day
+    if is_first_day:
+        account.day_num = 0
+        structure = {"open":[], "close":[], "rsi":[]}
+        account.daily_lookback = pd.DataFrame(structure)
+        account.daily_lookback["open"][account.day_num] = lookback["open"][interval_id]
+        # Day 0 data
+        account.daily_lookback.loc[account.day_num] = [ lookback["open"][interval_id], None, None ]
+
+    elif is_new_day:
+        # Fill yesterday data
+        account.day_num += 1
+        account.daily_lookback["close"][account.day_num-1] = lookback["close"][interval_id-1]
+        account.daily_lookback["open"][account.day_num] = lookback["open"][interval_id]
+        # Start today data
+        account.daily_lookback.loc[account.day_num] = [ lookback["open"][interval_id], None, None ]
+        
+        if account.day_num > training_period:
+            rsi = relative_strength_index(account.daily_lookback["open"], account.daily_lookback["close"], periods=training_period)
+            account.daily_lookback["rsi"][account.day_num-1] = rsi
+        
+        print("day:",account.day_num-1,"interval:", interval_id)
+        print(account.daily_lookback.loc[account.day_num-1],"\n")
+
+        # daily decision logic here
+
+    # minute decision logic here
 
         
 '''
