@@ -9,6 +9,19 @@ from backtester import API_Interface as api
 training_period = 20 # How far the rolling average takes into calculation
 standard_deviations = 3.5 # Number of Standard Deviations from the mean the Bollinger Bands sit
 
+def Long(account, price):
+    if account.buying_power >0:
+        account.enter_position('long', account.buying_power, price)
+
+def Short(account, price):
+    if account.buying_power >0:
+        account.enter_position('short', account.buying_power, price)
+
+def Neutral(account, price):
+    for position in account.positions:
+        account.close_position(position, 1, price)
+
+
 '''
 logic() function:
     Context: Called for every row in the input data.
@@ -20,7 +33,7 @@ logic() function:
 '''
 
 def logic(account, lookback): # Logic function to be used for each time interval in backtest 
-    
+    pass
 '''
 preprocess_data() function:
     Context: Called once at the beginning of the backtest. TOTALLY OPTIONAL. 
