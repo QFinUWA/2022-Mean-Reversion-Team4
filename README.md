@@ -1,5 +1,7 @@
 # Mean Reversion Trading Team Project Semester 1 2022
 
+Due date: Roughly 2022-04-24
+
 Repository for the Trading Team Project based on Mean Reversion for QFin Semester 1 2022
 
 Requirements: python + pip 

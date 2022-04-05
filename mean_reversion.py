@@ -22,6 +22,15 @@ def Neutral(account, price):
         account.close_position(position, 1, price)
 
 
+def stochastic_oscillator():
+    pass
+
+def relative_strength_index():
+    pass
+
+def internal_bar_strength():
+    pass
+
 '''
 logic() function:
     Context: Called for every row in the input data.
@@ -34,6 +43,7 @@ logic() function:
 
 def logic(account, lookback): # Logic function to be used for each time interval in backtest 
     pass
+
 '''
 preprocess_data() function:
     Context: Called once at the beginning of the backtest. TOTALLY OPTIONAL. 
