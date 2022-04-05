@@ -14,7 +14,7 @@ def stochastic_oscillator():
 
 def relative_strength_index(opens, closes, periods=14):
     
-    deltas = pd.Series(closes[-periods:]) - pd.Series(opens[-(periods+1):-1])
+    deltas = pd.Series(closes[-periods:]) - pd.Series(opens[-periods:])
 
     gain_sum = 0
     loss_sum = 0
@@ -77,20 +77,18 @@ def logic(account, lookback): # Logic function to be used for each time interval
         # Fill yesterday data
         account.day_num += 1
         account.daily_lookback["close"][account.day_num-1] = lookback["close"][interval_id-1]
-        account.daily_lookback["open"][account.day_num] = lookback["open"][interval_id]
-        # Start today data
-        account.daily_lookback.loc[account.day_num] = [ lookback["open"][interval_id], None, None ]
-        
         if account.day_num > training_period:
             rsi = relative_strength_index(account.daily_lookback["open"], account.daily_lookback["close"], periods=training_period)
             account.daily_lookback["rsi"][account.day_num-1] = rsi
         
+        # Init today data
+        account.daily_lookback.loc[account.day_num] = [ lookback["open"][interval_id], None, None ]
         print("day:",account.day_num-1,"interval:", interval_id)
         print(account.daily_lookback.loc[account.day_num-1],"\n")
 
         # daily decision logic here
 
-    # minute decision logic here
+    # interval decision logic here
 
         
 '''
