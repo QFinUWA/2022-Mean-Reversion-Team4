@@ -25,7 +25,7 @@ def stochastic_oscillator(highs, lows, closes, periods=14):
     high = max(highs[-periods:])
     low = min(lows[-periods:])
     sto = (closes.iloc[-1] - low) / (high - low) * 100
-    #print(sto)
+    #print(f"{sto=}")
     return sto
 
 def relative_strength_index(opens, closes, periods=14):
@@ -69,8 +69,13 @@ logic() function:
 def logic(account, lookback): # Logic function to be used for each time interval in backtest 
     
     interval_id = len(lookback) - 1
-    today = lookback["date"][interval_id].date()
 
+        
+       
+        
+def daily_logic(account, lookback):   
+    interval_id = len(lookback) - 1
+    today = lookback["date"][interval_id].date()
     is_first_day = False
     if interval_id == 0:
         # first day has no previous day
@@ -146,8 +151,8 @@ def preprocess_data(list_of_stocks):
     return list_of_stocks_processed
 
 if __name__ == "__main__":
-    # list_of_stocks = ["TSLA_2020-03-01_2022-01-20_1min"] 
-    list_of_stocks = ["TSLA_2020-03-09_2022-01-28_15min", "AAPL_2020-03-24_2022-02-12_15min"] # List of stock data csv's to be tested, located in "data/" folder 
+    #list_of_stocks = ["TSLA_2020-03-01_2022-01-20_1min"] 
+    list_of_stocks = ["AAPL_2020-03-24_2022-02-12_15min"] # List of stock data csv's to be tested, located in "data/" folder 
     list_of_stocks_proccessed = preprocess_data(list_of_stocks) # Preprocess the data
     results = tester.test_array(list_of_stocks_proccessed, logic, chart=True) # Run backtest on list of stocks using the logic function
 
