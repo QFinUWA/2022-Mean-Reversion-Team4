@@ -21,8 +21,12 @@ def close_position(account, price):
     for position in account.positions:
         account.close_position(position, 1, price)
 
-def stochastic_oscillator():
-    pass
+def stochastic_oscillator(highs, lows, closes, periods=14):
+    high = max(highs[-periods:])
+    low = min(lows[-periods:])
+    sto = (closes.iloc[-1] - low) / (high - low) * 100
+    #print(sto)
+    return sto
 
 def relative_strength_index(opens, closes, periods=14):
     
@@ -70,31 +74,40 @@ def logic(account, lookback): # Logic function to be used for each time interval
     is_first_day = False
     if interval_id == 0:
         # first day has no previous day
+        # init variables
         is_new_day = True
         is_first_day = True
-    else:
-        # if previous interval is previous day, it is a new day
-        is_new_day = today != lookback["date"][interval_id-1].date()
-
-    # Store the opening and closing prices of every day
-    if is_first_day:
+        account.temp_min = None
+        account.temp_max = None
         account.day_num = 0
-        structure = {"open":[], "close":[], "rsi":[]}
+        structure = {"open":[], "close":[], "start_interval":[], "end_interval":[], "high":[], "low":[], "rsi":[], "sto":[]}
         account.daily_lookback = pd.DataFrame(structure)
         account.daily_lookback["open"][account.day_num] = lookback["open"][interval_id]
         # Day 0 data
-        account.daily_lookback.loc[account.day_num] = [ lookback["open"][interval_id], None, None ]
+        account.daily_lookback.loc[account.day_num] = [ lookback["open"][interval_id], None, interval_id, None, None, None, None, None ]
 
-    elif is_new_day:
+    elif today != lookback["date"][interval_id-1].date():
+
         # Fill yesterday data
         account.day_num += 1
         account.daily_lookback["close"][account.day_num-1] = lookback["close"][interval_id-1]
+        account.daily_lookback["end_interval"][account.day_num-1] = interval_id-1
+        account.daily_lookback["high"][account.day_num-1] = account.temp_max
+        account.daily_lookback["low"][account.day_num-1] = account.temp_min
+        # Reset counters
+        account.temp_max = None
+        account.temp_min = None
+
+        # Get and store indicators
         if account.day_num > training_period:
             rsi = relative_strength_index(account.daily_lookback["open"], account.daily_lookback["close"], periods=training_period)
             account.daily_lookback["rsi"][account.day_num-1] = rsi
+
+            sto = stochastic_oscillator(account.daily_lookback["high"], account.daily_lookback["low"], account.daily_lookback["close"])
+            account.daily_lookback["sto"][account.day_num-1] = sto
         
         # Init today data
-        account.daily_lookback.loc[account.day_num] = [ lookback["open"][interval_id], None, None ]
+        account.daily_lookback.loc[account.day_num] = [ lookback["open"][interval_id], None, interval_id, None, None, None, None, None ]
         print("day:",account.day_num-1,"interval:", interval_id)
         print(account.daily_lookback.loc[account.day_num-1],"\n")
 
@@ -102,7 +115,14 @@ def logic(account, lookback): # Logic function to be used for each time interval
 
     # interval decision logic here
 
-        
+    # For the daily min/max
+    if account.temp_max is None or account.temp_min is None:
+        account.temp_max = max(lookback["high"][interval_id], lookback["low"][interval_id])
+        account.temp_min = min(lookback["high"][interval_id], lookback["low"][interval_id])
+    else:
+        account.temp_max = max(lookback["high"][interval_id], lookback["low"][interval_id], account.temp_max)
+        account.temp_min = min(lookback["high"][interval_id], lookback["low"][interval_id], account.temp_min)
+
 '''
 preprocess_data() function:
     Context: Called once at the beginning of the backtest. TOTALLY OPTIONAL. 
