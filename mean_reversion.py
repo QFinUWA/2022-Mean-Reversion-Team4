@@ -9,6 +9,18 @@ from backtester import API_Interface as api
 training_period = 20 # How far the rolling average takes into calculation
 standard_deviations = 3.5 # Number of Standard Deviations from the mean the Bollinger Bands sit
 
+def enter_long(account, price):
+    if account.buying_power >0:
+        account.enter_position('long', account.buying_power, price)
+
+def enter_short(account, price):
+    if account.buying_power >0:
+        account.enter_position('short', account.buying_power, price)
+
+def close_position(account, price):
+    for position in account.positions:
+        account.close_position(position, 1, price)
+
 def stochastic_oscillator():
     pass
 
