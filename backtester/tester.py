@@ -12,7 +12,7 @@ def backtest_stock(results, stock, logic, chart):
     lock = mp.Lock() # Lock used to prevent errors with multiprocessing
     df = pd.read_csv("data/" + stock + ".csv", parse_dates=[0]) # Read the csv file into a dataframe to be tested
     backtest = engine.backtest(df) # Create a backtest object with the data from the csv
-    backtest.start(1000, logic) # Start the backtest with the provided logic function
+    backtest.start(5000, logic) # Start the backtest with the provided logic function
     lock.acquire()
     data = backtest.results() # Get the results of the backtest
     data.extend([stock]) # Add the stock name to the results for easy comparison
