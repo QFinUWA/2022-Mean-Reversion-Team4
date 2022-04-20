@@ -37,6 +37,8 @@ def logic(account, lookback): # Logic function to be used for each time interval
 
     if interval_id == 0:
         account.status = "out"
+        account.pt_hits = 0
+        account.pt_misses = 0
 
     if interval_id > training_period:
         #print(f"{interval_id=}")
@@ -44,6 +46,50 @@ def logic(account, lookback): # Logic function to be used for each time interval
         sto_k = lookback["sto_k"][interval_id]
         sto_d = lookback["sto_d"][interval_id]
 
+        if account.status == "long":
+
+            if lookback["close"][interval_id] < account.stoploss:
+                close_position(account, lookback["close"][interval_id])
+                account.stoploss = None
+                account.profit_target = None
+                account.status = "out"
+                account.pt_misses += 1
+                print(f"\tstoploss triggered at {interval_id=}")
+                print(f"{account.pt_hits}/{account.pt_hits+account.pt_misses} targets hit")
+
+            elif lookback["close"][interval_id] > account.profit_target:
+                close_position(account, lookback["close"][interval_id])
+                account.stoploss = None
+                account.profit_target = None
+                account.status = "out"
+                account.pt_hits += 1
+                print(f"\tPROFIT TARGET HIT at {interval_id=}")
+                print(f"{account.pt_hits}/{account.pt_hits+account.pt_misses} targets hit")
+
+
+
+        if account.status == "out":
+            if sto_k < 25 and sto_d < 25 and rsi > 50:
+                print(f"sto & rsi suggest long {interval_id=}")
+                
+                account.status = "wait_macd_buy"
+                
+                # =====move this to wait_macd_buy if block when macd  arrives=======
+                enter_long(account, lookback["close"][interval_id])
+                account.status = "long"
+
+                # placeholder stoploss
+                account.stoploss = lookback["low"].iloc[-1].min()
+                account.profit_target = lookback["close"][interval_id] + (lookback["close"][interval_id]-account.stoploss)*1.5
+                print(f"\t{account.stoploss=}\n\t{account.profit_target=}")
+                # =================================================================
+        
+        if account.status == "wait_macd_buy":
+            # put check here to see if macd has cross signal line
+                # then buy and change status to long
+                # set stoploss
+                # set profit target
+            pass
         
 
 
@@ -65,7 +111,8 @@ def calc_rsi(data, periods=14):
 def calc_sto(data, periods=14, k=3, d=3):
     high = data["high"].rolling(periods).max()
     low = data["low"].rolling(periods).min()
-    sto_k = (data["close"]-low)/(high-low) * 100
+    sto = (data["close"]-low)/(high-low) * 100
+    sto_k = sto.rolling(k).mean()
     sto_d = sto_k.rolling(d).mean()
 
     return (sto_k, sto_d)
@@ -95,15 +142,15 @@ def preprocess_data(list_of_stocks):
             'close':'last',
             'volume':'last'
         }).dropna()
-        df2["rsi"] = calc_rsi(df2)
-        (df2["sto_k"], df2["sto_d"]) = calc_sto(df2)
+        df2["rsi"] = calc_rsi(df2, 14)
+        (df2["sto_k"], df2["sto_d"]) = calc_sto(df2,14)
         df2.to_csv("data/" + stock + "_Processed.csv", index=False) # Save to CSV
         list_of_stocks_processed.append(stock + "_Processed")
     return list_of_stocks_processed
 
 if __name__ == "__main__":
     #list_of_stocks = ["GOOG_2020-04-20_2020-04-20_1min"] 
-    list_of_stocks = ["AAPL_2020-03-24_2022-02-12_1min"] # List of stock data csv's to be tested, located in "data/" folder 
+    list_of_stocks = ["GOOG_2020-04-30_2022-03-21_1min", "AAPL_2020-03-24_2022-02-12_1min", "TSLA_2020-03-01_2022-01-20_1min"] # List of stock data csv's to be tested, located in "data/" folder 
     list_of_stocks_proccessed = preprocess_data(list_of_stocks) # Preprocess the data
     results = tester.test_array(list_of_stocks_proccessed, logic, chart=True) # Run backtest on list of stocks using the logic function
     #results = tester.test_array(list_of_stocks, logic, chart=True) # Run backtest on list of stocks using the logic function
