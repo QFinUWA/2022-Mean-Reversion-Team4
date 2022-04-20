@@ -69,6 +69,21 @@ logic() function:
 def logic(account, lookback): # Logic function to be used for each time interval in backtest 
     
     interval_id = len(lookback) - 1
+    today = lookback["date"][interval_id].date()
+    if interval_id == 0:
+        account.status = "out"
+        structure = {"rsi":[], "sto_k":[], "sto_d":[]}
+        account.stats = pd.DataFrame(structure)
+
+    account.stats.loc[interval_id] = [None,None,None] # add empty row
+
+    if interval_id > training_period:
+        #print(f"{interval_id=}")
+        rsi = relative_strength_index(lookback['open'], lookback['close'], periods=14)
+        sto_k = stochastic_oscillator(lookback['high'], lookback['low'], lookback['close'], periods=14)
+        account.stats["rsi"][interval_id] = rsi
+        account.stats["sto_k"][interval_id] = sto_k
+        account.stats['sto_d'] = account.stats.iloc[:,1].rolling(window=3).mean()
 
         
        
