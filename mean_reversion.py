@@ -9,52 +9,17 @@ from backtester import API_Interface as api
 training_period = 20 # How far the rolling average takes into calculation
 standard_deviations = 3.5 # Number of Standard Deviations from the mean the Bollinger Bands sit
 
-def enter_long(account, price):
+def enter_long(account, price, budget=1.0):
     if account.buying_power >0:
-        account.enter_position('long', account.buying_power, price)
+        account.enter_position('long', account.buying_power*budget, price)
 
-def enter_short(account, price):
+def enter_short(account, price, budget=1.0):
     if account.buying_power >0:
-        account.enter_position('short', account.buying_power, price)
+        account.enter_position('short', account.buying_power*budget, price)
 
 def close_position(account, price):
     for position in account.positions:
         account.close_position(position, 1, price)
-
-def stochastic_oscillator(highs, lows, closes, periods=14):
-    high = max(highs[-periods:])
-    low = min(lows[-periods:])
-    sto = (closes.iloc[-1] - low) / (high - low) * 100
-    #print(f"{sto=}")
-    return sto
-
-def relative_strength_index(opens, closes, periods=14):
-    
-    deltas = pd.Series(closes[-periods:]) - pd.Series(opens[-periods:])
-
-    gain_sum = 0
-    loss_sum = 0
-    for delta in deltas:
-        if delta > 0:
-            gain_sum += delta
-        if delta < 0:
-            loss_sum -= delta
-    
-    #print(deltas)
-    # No losses is always 100 RSI, also avoids zerodivide exception
-    if loss_sum == 0:
-        return 100
-
-    avg_gain = gain_sum/periods
-    avg_loss = loss_sum/periods
-    
-    relative_strength = avg_gain / avg_loss
-    rsi = 100 - ( 100 / (1 + relative_strength ) )
-    #print(f"{rsi=}")
-    return rsi
-
-def internal_bar_strength():
-    pass
 
 '''
 logic() function:
@@ -69,79 +34,42 @@ logic() function:
 def logic(account, lookback): # Logic function to be used for each time interval in backtest 
     
     interval_id = len(lookback) - 1
-    today = lookback["date"][interval_id].date()
+
     if interval_id == 0:
         account.status = "out"
-        structure = {"rsi":[], "sto_k":[], "sto_d":[]}
-        account.stats = pd.DataFrame(structure)
-
-    account.stats.loc[interval_id] = [None,None,None] # add empty row
 
     if interval_id > training_period:
         #print(f"{interval_id=}")
-        rsi = relative_strength_index(lookback['open'], lookback['close'], periods=14)
-        sto_k = stochastic_oscillator(lookback['high'], lookback['low'], lookback['close'], periods=14)
-        account.stats["rsi"][interval_id] = rsi
-        account.stats["sto_k"][interval_id] = sto_k
-        account.stats['sto_d'] = account.stats.iloc[:,1].rolling(window=3).mean()
+        rsi = lookback["rsi"][interval_id]
+        sto_k = lookback["sto_k"][interval_id]
+        sto_d = lookback["sto_d"][interval_id]
 
         
-       
-        
-def daily_logic(account, lookback):   
-    interval_id = len(lookback) - 1
-    today = lookback["date"][interval_id].date()
-    is_first_day = False
-    if interval_id == 0:
-        # first day has no previous day
-        # init variables
-        is_new_day = True
-        is_first_day = True
-        account.temp_min = None
-        account.temp_max = None
-        account.day_num = 0
-        structure = {"open":[], "close":[], "start_interval":[], "end_interval":[], "high":[], "low":[], "rsi":[], "sto":[]}
-        account.daily_lookback = pd.DataFrame(structure)
-        account.daily_lookback["open"][account.day_num] = lookback["open"][interval_id]
-        # Day 0 data
-        account.daily_lookback.loc[account.day_num] = [ lookback["open"][interval_id], None, interval_id, None, None, None, None, None ]
 
-    elif today != lookback["date"][interval_id-1].date():
 
-        # Fill yesterday data
-        account.day_num += 1
-        account.daily_lookback["close"][account.day_num-1] = lookback["close"][interval_id-1]
-        account.daily_lookback["end_interval"][account.day_num-1] = interval_id-1
-        account.daily_lookback["high"][account.day_num-1] = account.temp_max
-        account.daily_lookback["low"][account.day_num-1] = account.temp_min
-        # Reset counters
-        account.temp_max = None
-        account.temp_min = None
+def calc_rsi(data, periods=14):
+    deltas = data["close"]-data["open"]
 
-        # Get and store indicators
-        if account.day_num > training_period:
-            rsi = relative_strength_index(account.daily_lookback["open"], account.daily_lookback["close"], periods=training_period)
-            account.daily_lookback["rsi"][account.day_num-1] = rsi
+    gains = 0 * deltas
+    losses = 0 * deltas
 
-            sto = stochastic_oscillator(account.daily_lookback["high"], account.daily_lookback["low"], account.daily_lookback["close"])
-            account.daily_lookback["sto"][account.day_num-1] = sto
-        
-        # Init today data
-        account.daily_lookback.loc[account.day_num] = [ lookback["open"][interval_id], None, interval_id, None, None, None, None, None ]
-        print("day:",account.day_num-1,"interval:", interval_id)
-        print(account.daily_lookback.loc[account.day_num-1],"\n")
+    gains[deltas > 0] = deltas[deltas > 0]
+    losses[deltas < 0] = deltas[deltas < 0]
 
-        # daily decision logic here
+    avg_gains = gains.rolling(periods).mean()
+    avg_losses = losses.rolling(periods).mean()
+    relative_strength = abs(avg_gains / avg_losses)
+    rsi = 100 - ( 100 / (1 + relative_strength ) )
+    return rsi
 
-    # interval decision logic here
+def calc_sto(data, periods=14, k=3, d=3):
+    high = data["high"].rolling(periods).max()
+    low = data["low"].rolling(periods).min()
+    sto_k = (data["close"]-low)/(high-low) * 100
+    sto_d = sto_k.rolling(d).mean()
 
-    # For the daily min/max
-    if account.temp_max is None or account.temp_min is None:
-        account.temp_max = max(lookback["high"][interval_id], lookback["low"][interval_id])
-        account.temp_min = min(lookback["high"][interval_id], lookback["low"][interval_id])
-    else:
-        account.temp_max = max(lookback["high"][interval_id], lookback["low"][interval_id], account.temp_max)
-        account.temp_min = min(lookback["high"][interval_id], lookback["low"][interval_id], account.temp_min)
+    return (sto_k, sto_d)
+
 
 '''
 preprocess_data() function:
@@ -156,20 +84,29 @@ def preprocess_data(list_of_stocks):
     list_of_stocks_processed = []
     for stock in list_of_stocks:
         df = pd.read_csv("data/" + stock + ".csv", parse_dates=[0])
-        df['TP'] = (df['close'] + df['low'] + df['high'])/3 # Calculate Typical Price
-        df['std'] = df['TP'].rolling(training_period).std() # Calculate Standard Deviation
-        df['MA-TP'] = df['TP'].rolling(training_period).mean() # Calculate Moving Average of Typical Price
-        df['BOLU'] = df['MA-TP'] + standard_deviations*df['std'] # Calculate Upper Bollinger Band
-        df['BOLD'] = df['MA-TP'] - standard_deviations*df['std'] # Calculate Lower Bollinger Band
-        df.to_csv("data/" + stock + "_Processed.csv", index=False) # Save to CSV
+        
+        df2 = df.groupby(
+            pd.Grouper(key="date", freq="1h")
+        ).agg({
+            'date':'first',
+            'open':'first',
+            'high':'max',
+            'low':'min',
+            'close':'last',
+            'volume':'last'
+        }).dropna()
+        df2["rsi"] = calc_rsi(df2)
+        (df2["sto_k"], df2["sto_d"]) = calc_sto(df2)
+        df2.to_csv("data/" + stock + "_Processed.csv", index=False) # Save to CSV
         list_of_stocks_processed.append(stock + "_Processed")
     return list_of_stocks_processed
 
 if __name__ == "__main__":
-    #list_of_stocks = ["TSLA_2020-03-01_2022-01-20_1min"] 
-    list_of_stocks = ["AAPL_2020-03-24_2022-02-12_15min"] # List of stock data csv's to be tested, located in "data/" folder 
+    #list_of_stocks = ["GOOG_2020-04-20_2020-04-20_1min"] 
+    list_of_stocks = ["AAPL_2020-03-24_2022-02-12_1min"] # List of stock data csv's to be tested, located in "data/" folder 
     list_of_stocks_proccessed = preprocess_data(list_of_stocks) # Preprocess the data
     results = tester.test_array(list_of_stocks_proccessed, logic, chart=True) # Run backtest on list of stocks using the logic function
+    #results = tester.test_array(list_of_stocks, logic, chart=True) # Run backtest on list of stocks using the logic function
 
     print("training period " + str(training_period))
     print("standard deviations " + str(standard_deviations))
