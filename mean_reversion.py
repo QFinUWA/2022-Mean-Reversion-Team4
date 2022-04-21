@@ -54,12 +54,6 @@ def logic(account, lookback):  # Logic function to be used for each time interva
         sto_k = lookback["sto_k"][interval_id]
         sto_d = lookback["sto_d"][interval_id]
 
-        # the difference of the moving averages scaled
-        #   if it is large and positive then the fast average is above the slow average
-        #   and is more likely to revert to the mean
-        #   alternitively if it is large and negative it will be the opposite
-        #   Expected value:  -1 < x < 1
-
         if account.status == "long":
 
             if lookback["close"][interval_id] < account.stoploss:
