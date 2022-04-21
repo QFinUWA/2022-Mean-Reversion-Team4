@@ -70,6 +70,12 @@ def update_fast_average(lookback):
     return mv_av_fast
 
 
+def get_moving_average_predictor(lookback):
+    slow, fast = (update_slow_average(lookback), update_fast_average(lookback))
+
+    diff = (fast - slow)/lookback['close']
+
+
 '''
 
 
@@ -88,10 +94,6 @@ def logic(account, lookback):  # Logic function to be used for each time interva
 
     today = len(lookback)-1
     # will only start returning non (-1, -1) when slow window has caught up
-    slow, fast = (update_slow_average(lookback), update_fast_average(lookback))
-
-    if slow is not None:
-        account.over = fast > slow
 
 
 '''
