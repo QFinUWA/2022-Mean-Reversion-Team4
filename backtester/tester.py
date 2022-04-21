@@ -17,7 +17,7 @@ def backtest_stock(results, stock, logic, chart):
     # Create a backtest object with the data from the csv
     backtest = engine.backtest(df)
     # Start the backtest with the provided logic function
-    backtest.start(1000, logic)
+    backtest.start(5000, logic)
     lock.acquire()
     data = backtest.results()  # Get the results of the backtest
     # Add the stock name to the results for easy comparison
