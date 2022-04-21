@@ -1,12 +1,13 @@
+import math
 import pandas as pd
 import time
 import multiprocessing as mp
+import matplotlib.pyplot as plt
 
 # local imports
 from backtester import engine, tester
 from backtester import API_Interface as api
 
-training_period = 20  # How far the rolling average takes into calculation
 # Number of Standard Deviations from the mean the Bollinger Bands sit
 standard_deviations = 3.5
 
@@ -35,6 +36,7 @@ logic() function:
 
     Output: none, but the account object will be modified on each call
 '''
+WARMUP_PERIOD = 20
 
 
 def logic(account, lookback):  # Logic function to be used for each time interval in backtest
@@ -46,11 +48,17 @@ def logic(account, lookback):  # Logic function to be used for each time interva
         account.pt_hits = 0
         account.pt_misses = 0
 
-    if interval_id > training_period:
+    if interval_id > WARMUP_PERIOD:
         # print(f"{interval_id=}")
         rsi = lookback["rsi"][interval_id]
         sto_k = lookback["sto_k"][interval_id]
         sto_d = lookback["sto_d"][interval_id]
+
+        # the difference of the moving averages scaled
+        #   if it is large and positive then the fast average is above the slow average
+        #   and is more likely to revert to the mean
+        #   alternitively if it is large and negative it will be the opposite
+        #   Expected value:  -1 < x < 1
 
         if account.status == "long":
 
@@ -80,7 +88,12 @@ def logic(account, lookback):  # Logic function to be used for each time interva
 
                 account.status = "wait_macd_buy"
 
-                # =====move this to wait_macd_buy if block when macd  arrives=======
+        if account.status == "wait_macd_buy":
+            # if macd has cross signal line
+
+            if macd_over_signal(lookback, interval_id):
+                print(f"macd confirmed buy at {interval_id=}")
+                # then buy and change status to long
                 enter_long(account, lookback["close"][interval_id])
                 account.status = "long"
 
@@ -89,14 +102,8 @@ def logic(account, lookback):  # Logic function to be used for each time interva
                 account.profit_target = lookback["close"][interval_id] + (
                     lookback["close"][interval_id]-account.stoploss)*1.5
                 print(f"\t{account.stoploss=}\n\t{account.profit_target=}")
-                # =================================================================
-
-        if account.status == "wait_macd_buy":
-            # put check here to see if macd has cross signal line
-            # then buy and change status to long
-            # set stoploss
-            # set profit target
-            pass
+            else:
+                print(f"macd denied buy at {interval_id=}")
 
 
 def calc_rsi(data, periods=14):
@@ -125,37 +132,17 @@ def calc_sto(data, periods=14, k=3, d=3):
     return (sto_k, sto_d)
 
 
-# Isaac is responsible for the following:
-SCALE = 4*24
-mv_av_slow_size = 10*SCALE
+def calc_macd(data, slow=26, fast=12, macd=9):
+    exp1 = data['close'].ewm(span=slow, adjust=False).mean()
+    exp2 = data['close'].ewm(span=fast, adjust=False).mean()
+    macd_ewp = exp1 - exp2
+    macd_signal = macd_ewp.ewm(span=macd, adjust=False).mean()
 
-mv_av_fast_size = 20*SCALE
-window = []
-
-
-def update_slow_average(lookback):
-    mv_av_slow = None
-
-    last = len(lookback) - 1
-    if last >= mv_av_slow_size:
-        sub = lookback['CUMSUM'][last -
-                                 mv_av_slow_size] if last > mv_av_slow_size else 0
-        mv_av_slow = (lookback['CUMSUM'][last] - sub)/mv_av_slow_size
-        # print(lookback['close'][-mv_av_slow_size:])
-        # print(f'{mv_av_slow=}')
-
-    return mv_av_slow
+    return (macd_ewp, macd_signal)
 
 
-def update_fast_average(lookback):
-    mv_av_fast = None
-    last = len(lookback) - 1
-    if last >= mv_av_fast_size:
-        sub = lookback['CUMSUM'][last -
-                                 mv_av_fast_size] if last > mv_av_fast_size else 0
-        mv_av_fast = (lookback['CUMSUM'][last] - sub)/mv_av_fast_size
-
-    return mv_av_fast
+def macd_over_signal(data, interval_id):
+    return data['MACD'][interval_id] > data['MACD SIGNAL'][interval_id]
 
 
 '''
@@ -172,7 +159,7 @@ preprocess_data() function:
 def preprocess_data(list_of_stocks):
     list_of_stocks_processed = []
     for stock in list_of_stocks:
-        df = pd.read_csv("data/" + stock + ".csv", parse_dates=[0])
+        df = pd.read_csv(f'data/{stock}.csv', parse_dates=[0])
 
         df2 = df.groupby(
             pd.Grouper(key="date", freq="1h")
@@ -185,6 +172,7 @@ def preprocess_data(list_of_stocks):
             'volume': 'last'
         }).dropna()
         df2["rsi"] = calc_rsi(df2, 14)
+        (df2['MACD'], df2['MACD SIGNAL']) = calc_macd(df2)
         (df2["sto_k"], df2["sto_d"]) = calc_sto(df2, 14)
         df2.to_csv("data/" + stock + "_Processed.csv",
                    index=False)  # Save to CSV
@@ -192,18 +180,28 @@ def preprocess_data(list_of_stocks):
     return list_of_stocks_processed
 
 
-if __name__ == "__main__":
-    #list_of_stocks = ["GOOG_2020-04-20_2020-04-20_1min"]
-    list_of_stocks = ["GOOG_2020-04-30_2022-03-21_1min", "AAPL_2020-03-24_2022-02-12_1min",
-                      "TSLA_2020-03-01_2022-01-20_1min"]  # List of stock data csv's to be tested, located in "data/" folder
-    list_of_stocks_proccessed = preprocess_data(
-        list_of_stocks)  # Preprocess the data
-    # Run backtest on list of stocks using the logic function
-    results = tester.test_array(list_of_stocks_proccessed, logic, chart=True)
-    # results = tester.test_array(list_of_stocks, logic, chart=True) # Run backtest on list of stocks using the logic function
+def plot_time_series(file):
+    df = pd.read_csv(file)
 
-    print("training period " + str(training_period))
-    print("standard deviations " + str(standard_deviations))
-    df = pd.DataFrame(list(results), columns=["Buy and Hold", "Strategy", "Longs", "Sells",
-                      "Shorts", "Covers", "Stdev_Strategy", "Stdev_Hold", "Stock"])  # Create dataframe of results
-    df.to_csv("results/Test_Results.csv", index=False)  # Save results to csv
+    df.plot(x='date', y=['close', 'sto_k', 'sto_d'])
+    plt.show()
+
+
+if __name__ == "__main__":
+
+    plot_time_series('data/AAPL_2020-03-24_2022-02-12_1min_Processed.csv')
+
+    # # list_of_stocks = ["GOOG_2020-04-20_2020-04-20_1min"]
+    # list_of_stocks = ["GOOG_2020-04-30_2022-03-21_1min", "AAPL_2020-03-24_2022-02-12_1min",
+    #                   "TSLA_2020-03-01_2022-01-20_1min"]  # List of stock data csv's to be tested, located in "data/" folder
+    # list_of_stocks_proccessed = preprocess_data(
+    #     list_of_stocks)  # Preprocess the data
+    # # Run backtest on list of stocks using the logic function
+    # results = tester.test_array(list_of_stocks_proccessed, logic, chart=True)
+    # # results = tester.test_array(list_of_stocks, logic, chart=True) # Run backtest on list of stocks using the logic function
+
+    # print("training period " + str(WARMUP_PERIOD))
+    # print("standard deviations " + str(standard_deviations))
+    # df = pd.DataFrame(list(results), columns=["Buy and Hold", "Strategy", "Longs", "Sells",
+    #                   "Shorts", "Covers", "Stdev_Strategy", "Stdev_Hold", "Stock"])  # Create dataframe of results
+    # df.to_csv("results/Test_Results.csv", index=False)  # Save results to csv
