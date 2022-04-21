@@ -156,7 +156,8 @@ class Account:
         elif entry_price < 0:
             raise ValueError("Error: Entry price cannot be negative.")
         elif self.buying_power < entry_capital:
-            raise ValueError("Error: Not enough buying power to enter position")
+            raise ValueError(
+                "Error: Not enough buying power to enter position")
         else:
             # apply fee to price
             price_with_fee = self.apply_fee(entry_price, type_, 'Open')

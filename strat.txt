@@ -1,0 +1,18 @@
+
+3 indicators
+    1. stochastic  identifies over-bought and over-sold
+    2. RSI         identifies over-bought and over-sold - use as confirmation         
+    3. MACD
+
+stochastic
+    if both K and D stochastic is below L - CHECK RSI
+
+    RSI
+        if RSI is above middle line - ONLY BUY
+
+        if RSI is below middle line - ONLY SELL
+
+        MACD
+            if MACD is above signal - BUY
+
+            if MACD is below the signal - SELL

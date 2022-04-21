@@ -3,6 +3,9 @@ import pandas as pd
 import time
 import multiprocessing as mp
 import matplotlib.pyplot as plt
+from enum import Enum, auto
+
+from numpy import diff
 
 # local imports
 from backtester import engine, tester
@@ -39,12 +42,21 @@ logic() function:
 WARMUP_PERIOD = 20
 
 
+class State(Enum):
+    # generate enums for states of the algorithm
+    OUT = auto()
+    LONG = auto()
+    SHORT = auto()
+    WAIT_MACD_LONG = auto()
+    WAIT_MACD_SHORT = auto()
+
+
 def logic(account, lookback):  # Logic function to be used for each time interval in backtest
 
     interval_id = len(lookback) - 1
 
     if interval_id == 0:
-        account.status = "out"
+        account.status = State.OUT
         account.pt_hits = 0
         account.pt_misses = 0
 
@@ -54,15 +66,16 @@ def logic(account, lookback):  # Logic function to be used for each time interva
         sto_k = lookback["sto_k"][interval_id]
         sto_d = lookback["sto_d"][interval_id]
 
-        if account.status == "long":
+        # look to exit while longing
+        if account.status == State.LONG:
 
             if lookback["close"][interval_id] < account.stoploss:
                 close_position(account, lookback["close"][interval_id])
                 account.stoploss = None
                 account.profit_target = None
-                account.status = "out"
+                account.status = State.OUT
                 account.pt_misses += 1
-                print(f"\tstoploss triggered at {interval_id=}")
+                print(f"stoploss triggered at {interval_id=}")
                 print(
                     f"{account.pt_hits}/{account.pt_hits+account.pt_misses} targets hit")
 
@@ -70,56 +83,138 @@ def logic(account, lookback):  # Logic function to be used for each time interva
                 close_position(account, lookback["close"][interval_id])
                 account.stoploss = None
                 account.profit_target = None
-                account.status = "out"
+                account.status = State.OUT
                 account.pt_hits += 1
-                print(f"\tPROFIT TARGET HIT at {interval_id=}")
+                print(f"PROFIT TARGET HIT at {interval_id=}")
                 print(
                     f"{account.pt_hits}/{account.pt_hits+account.pt_misses} targets hit")
 
-        if account.status == "out":
-            if sto_k < 25 and sto_d < 25 and rsi > 50:
-                print(f"sto & rsi suggest long {interval_id=}")
+        # look to exit while shorting
+        if account.status == State.SHORT:
 
-                account.status = "wait_macd_buy"
+            if lookback["close"][interval_id] > account.stoploss:
+                close_position(account, lookback["close"][interval_id])
+                account.stoploss = None
+                account.profit_target = None
+                account.status = State.OUT
+                account.pt_misses += 1
+                print(f"stoploss triggered at {interval_id=}")
+                print(
+                    f"{account.pt_hits}/{account.pt_hits+account.pt_misses} targets hit")
 
-        if account.status == "wait_macd_buy":
+            elif lookback["close"][interval_id] < account.profit_target:
+                close_position(account, lookback["close"][interval_id])
+                account.stoploss = None
+                account.profit_target = None
+                account.status = State.OUT
+                account.pt_hits += 1
+                print(f"PROFIT TARGET HIT at {interval_id=}")
+                print(
+                    f"{account.pt_hits}/{account.pt_hits+account.pt_misses} targets hit")
+
+        # look to buy
+        if account.status == State.OUT:
+
+            if sto_k < 20 and sto_d < 20 and rsi > 50:
+                print(f"STO & RSI suggest LONG at {interval_id=}")
+
+                account.status = State.WAIT_MACD_LONG
+
+            elif sto_k > 80 and sto_d > 80 and rsi < 50:
+                print(f"STO & RSI suggest SHORT at {interval_id=}")
+
+                account.status = State.WAIT_MACD_SHORT
+
+        # wait for macd confirmation for long
+        if account.status == State.WAIT_MACD_LONG:
             # if macd has cross signal line
 
-            if macd_over_signal(lookback, interval_id):
-                print(f"macd confirmed buy at {interval_id=}")
+            # if sto condition or rsi condition are untrue then set to out
+            if sto_k > 80 or sto_d > 80:
+                print('STO > 80 - Finished waiting for MACD\n')
+                account.status = State.OUT
+
+            elif macd_over_signal(lookback, interval_id):
                 # then buy and change status to long
-                enter_long(account, lookback["close"][interval_id])
-                account.status = "long"
+                price = lookback["close"][interval_id]
+                print(f"\tMACD long confirmed buy at {interval_id=}, {price=}")
+                enter_long(account, price)
+                account.status = State.LONG
 
                 # placeholder stoploss
-                account.stoploss = lookback["low"].iloc[-1].min()
-                account.profit_target = lookback["close"][interval_id] + (
-                    lookback["close"][interval_id]-account.stoploss)*1.5
-                print(f"\t{account.stoploss=}\n\t{account.profit_target=}")
-            else:
-                print(f"macd denied buy at {interval_id=}")
+                stoploss_diff = min(
+                    abs(price-find_swing(lookback, high_low='low'))/price, 0.0015)
+                # stoploss_diff = 0.0015
+                account.stoploss = price*(1-stoploss_diff)
+                account.profit_target = price*(1 + stoploss_diff*3)
+                print(f"\t{account.stoploss=}\t{account.profit_target=}")
+
+        # wait for macd confirmation for short
+        elif account.status == State.WAIT_MACD_SHORT:
+            # if macd has cross signal line
+
+            # if sto condition or rsi condition are untrue then set to out
+            if sto_k < 20 or sto_d < 20:
+                print('STO < 80 - Finished waiting for MACD')
+                account.status = State.OUT
+
+            elif not macd_over_signal(lookback, interval_id):
+                # then buy and change status to long
+                price = lookback["close"][interval_id]
+                print(
+                    f"\tMACD short confirmed buy at {interval_id=}, {price=}")
+                enter_short(account, price)
+                account.status = State.SHORT
+
+                # placeholder stoploss
+                stoploss_diff = min(
+                    abs(price-find_swing(lookback, high_low='low'))/price, 0.0015)
+                # stoploss_diff = 0.0015
+                account.stoploss = price*(1+stoploss_diff)
+                account.profit_target = price*(1 - stoploss_diff*3)
+                print(f"\t{account.stoploss=}\t{account.profit_target=}")
+
+
+# I have unit tested this to a moderate degree
+
+
+def find_swing(data, window=20, high_low='high'):
+    def find(x): return max(x) if high_low == 'high' else min(x)
+    return find([r for r in reversed(data[high_low])][1:window])
 
 
 def calc_rsi(data, periods=14):
-    deltas = data["close"]-data["open"]
+    # deltas = data["close"]-data["open"]
 
-    gains = 0 * deltas
-    losses = 0 * deltas
+    # gains = 0 * deltas
+    # losses = 0 * deltas
 
-    gains[deltas > 0] = deltas[deltas > 0]
-    losses[deltas < 0] = deltas[deltas < 0]
+    # gains[deltas > 0] = deltas[deltas > 0]
+    # losses[deltas < 0] = deltas[deltas < 0]
 
-    avg_gains = gains.rolling(periods).mean()
-    avg_losses = losses.rolling(periods).mean()
-    relative_strength = abs(avg_gains / avg_losses)
-    rsi = 100 - (100 / (1 + relative_strength))
+    # avg_gains = gains.rolling(periods).mean()
+    # avg_losses = losses.rolling(periods).mean()
+    # relative_strength = abs(avg_gains / avg_losses)
+    # rsi = 100 - (100 / (1 + relative_strength))
+    close_delta = data['close'].diff()
+
+    # Make two series: one for lower closes and one for higher closes
+    up = close_delta.clip(lower=0)
+    down = -1 * close_delta.clip(upper=0)
+
+    ma_up = up.ewm(com=periods - 1, adjust=True, min_periods=periods).mean()
+    ma_down = down.ewm(com=periods - 1, adjust=True,
+                       min_periods=periods).mean()
+
+    rsi = ma_up / ma_down
+    rsi = 100 - (100/(1 + rsi))
     return rsi
 
 
 def calc_sto(data, periods=14, k=3, d=3):
     high = data["high"].rolling(periods).max()
     low = data["low"].rolling(periods).min()
-    sto = (data["close"]-low)/(high-low) * 100
+    sto = ((data["close"]-low)/(high-low)) * 100
     sto_k = sto.rolling(k).mean()
     sto_d = sto_k.rolling(d).mean()
 
@@ -156,7 +251,7 @@ def preprocess_data(list_of_stocks):
         df = pd.read_csv(f'data/{stock}.csv', parse_dates=[0])
 
         df2 = df.groupby(
-            pd.Grouper(key="date", freq="1h")
+            pd.Grouper(key="date", freq="30T")
         ).agg({
             'date': 'first',
             'open': 'first',
@@ -183,19 +278,19 @@ def plot_time_series(file):
 
 if __name__ == "__main__":
 
-    plot_time_series('data/AAPL_2020-03-24_2022-02-12_1min_Processed.csv')
+    # plot_time_series('data/AAPL_2020-03-24_2022-02-12_1min_Processed.csv')
 
-    # # list_of_stocks = ["GOOG_2020-04-20_2020-04-20_1min"]
-    # list_of_stocks = ["GOOG_2020-04-30_2022-03-21_1min", "AAPL_2020-03-24_2022-02-12_1min",
-    #                   "TSLA_2020-03-01_2022-01-20_1min"]  # List of stock data csv's to be tested, located in "data/" folder
-    # list_of_stocks_proccessed = preprocess_data(
-    #     list_of_stocks)  # Preprocess the data
-    # # Run backtest on list of stocks using the logic function
-    # results = tester.test_array(list_of_stocks_proccessed, logic, chart=True)
-    # # results = tester.test_array(list_of_stocks, logic, chart=True) # Run backtest on list of stocks using the logic function
+    # list_of_stocks = ["GOOG_2020-04-20_2020-04-20_1min"]
+    list_of_stocks = ["GOOG_2020-04-30_2022-03-21_1min", "AAPL_2020-03-24_2022-02-12_1min",
+                      "TSLA_2020-03-01_2022-01-20_1min"]  # List of stock data csv's to be tested, located in "data/" folder
+    list_of_stocks_proccessed = preprocess_data(
+        list_of_stocks)  # Preprocess the data
+    # Run backtest on list of stocks using the logic function
+    results = tester.test_array(list_of_stocks_proccessed, logic, chart=True)
+    # results = tester.test_array(list_of_stocks, logic, chart=True) # Run backtest on list of stocks using the logic function
 
-    # print("training period " + str(WARMUP_PERIOD))
-    # print("standard deviations " + str(standard_deviations))
-    # df = pd.DataFrame(list(results), columns=["Buy and Hold", "Strategy", "Longs", "Sells",
-    #                   "Shorts", "Covers", "Stdev_Strategy", "Stdev_Hold", "Stock"])  # Create dataframe of results
-    # df.to_csv("results/Test_Results.csv", index=False)  # Save results to csv
+    print("training period " + str(WARMUP_PERIOD))
+    print("standard deviations " + str(standard_deviations))
+    df = pd.DataFrame(list(results), columns=["Buy and Hold", "Strategy", "Longs", "Sells",
+                      "Shorts", "Covers", "Stdev_Strategy", "Stdev_Hold", "Stock"])  # Create dataframe of results
+    df.to_csv("results/Test_Results.csv", index=False)  # Save results to csv
