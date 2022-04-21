@@ -1,3 +1,4 @@
+from numpy import short
 import pandas as pd
 import time
 import multiprocessing as mp
@@ -5,6 +6,9 @@ import multiprocessing as mp
 # local imports
 from backtester import engine, tester
 from backtester import API_Interface as api
+
+# import train_test_split
+from sklearn.model_selection import train_test_split
 
 training_period = 20 # How far the rolling average takes into calculation
 standard_deviations = 3.5 # Number of Standard Deviations from the mean the Bollinger Bands sit
@@ -53,6 +57,32 @@ def relative_strength_index(opens, closes, periods=14):
     #print(f"{rsi=}")
     return rsi
 
+def lowest_val(opens, close,low, periods =14):
+    # find lowest closing price in lookback
+    lowest = min(low[-periods:])
+    
+    return lowest
+
+def highest_val(opens, close,high ,periods =14):
+    # find lowest closing price in lookback
+    highest = max(high[-periods:])
+    
+    return highest
+# find ema of price 
+def ema(opens, closes, periods=14):
+    ema = closes.ewm(span=periods, adjust=False, min_periods=periods).mean()
+    return ema
+
+# build function for macd with open, close, high and low price 
+def macd(opens, closes,periods=12, short_period=26, long_period=9):
+    k = closes.ewm(span=periods, adjust=False, min_periods=periods).mean()
+    d = closes.ewm(span=short_period, adjust=False, min_periods=short_period).mean()
+    macd = k - d
+    signal = macd.ewm(span=long_period, adjust=False, min_periods=long_period).mean()
+    macd_h = macd - signal
+    # return signal and macd
+    return macd_h
+
 def internal_bar_strength():
     pass
 
@@ -72,19 +102,105 @@ def logic(account, lookback): # Logic function to be used for each time interval
     today = lookback["date"][interval_id].date()
     if interval_id == 0:
         account.status = "out"
-        structure = {"rsi":[], "sto_k":[], "sto_d":[]}
+        structure = {"rsi":[], "sto_k":[], "sto_d":[], "lowest":[], "highest":[], "mach_h":[],"ema":[]}
         account.stats = pd.DataFrame(structure)
 
-    account.stats.loc[interval_id] = [None,None,None] # add empty row
+    account.stats.loc[interval_id] = [None,None,None,None,None,None,None] # add empty row
+    buy_price = None
+    stoch_trigger = 0
+    stop_loss_long = None
+    stop_loss_short = None
+    sell_price = None
+    ema_x = None
+    
+
+
 
     if interval_id > training_period:
         #print(f"{interval_id=}")
         rsi = relative_strength_index(lookback['open'], lookback['close'], periods=14)
         sto_k = stochastic_oscillator(lookback['high'], lookback['low'], lookback['close'], periods=14)
+        lowest = lowest_val(lookback['open'], lookback['close'], lookback['low'] ,periods=14)
+        highest = highest_val(lookback['open'], lookback['close'], lookback['high'], periods=14)
+        mach_h = macd(lookback['open'], lookback['close'], periods=12, short_period=26, long_period=9)
+        ema_x = ema(lookback['open'], lookback['close'], periods=14)
         account.stats["rsi"][interval_id] = rsi
         account.stats["sto_k"][interval_id] = sto_k
         account.stats['sto_d'] = account.stats.iloc[:,1].rolling(window=3).mean()
+        account.stats['lowest'] = lowest
+        account.stats['highest'] = highest
+        account.stats['mach_h'] = mach_h
+        account.stats['ema'] = ema_x
+        
 
+
+        # create trigger if sto_k and sto_d are both below 30 as true
+        # while trigger is true if rsi is above 50 enter long
+    if interval_id > training_period:
+        if account.stats["sto_k"][interval_id] < 20 and account.stats["sto_d"][interval_id] < 20:
+            stoch_trigger = 1
+        if account.stats["sto_k"][interval_id] > 80 and account.stats["sto_d"][interval_id] > 80:
+            stoch_trigger = -1
+
+        if account.stats["rsi"][interval_id] > 50 and account.stats["mach_h"][interval_id] > 0 and lookback['close'][interval_id] < account.stats['ema'][interval_id]:
+            if stoch_trigger == 1:
+                for position in account.positions: # Close all current positions
+                    account.close_position(position, 1, lookback['close'][interval_id])
+                if(account.buying_power > 0):
+                    account.enter_position('long', account.buying_power, lookback['close'][interval_id])
+                    #enter_long(account, lookback['close'][interval_id])
+                    buy_price = lookback['close'][interval_id]
+                    stoch_trigger = 0
+                    stop_loss_long = buy_price-account.stats['lowest'][interval_id]
+        if account.stats["rsi"][interval_id] < 50 and account.stats["mach_h"][interval_id] < 0 and lookback['close'][interval_id] < account.stats['ema'][interval_id]:
+            if stoch_trigger == -1:
+                for position in account.positions: # Close all current positions
+                    account.close_position(position, 1, lookback['close'][interval_id])
+                if(account.buying_power > 0):
+                    account.enter_position('short', account.buying_power, lookback['close'][interval_id])
+                #enter_short(account, lookback['close'][interval_id])
+                    sell_price = lookback['close'][interval_id]
+                    stoch_trigger = 0
+                    stop_loss_short = sell_price+account.stats['highest'][interval_id]
+    
+        
+        if buy_price != None and stop_loss_long != None and lookback['close'][interval_id] <= buy_price - stop_loss_long:
+            #close_position(account, lookback['close'][interval_id])
+            for position in account.positions: # Close all current positions
+                account.close_position(position, 1, lookback['close'][interval_id])
+            buy_price = None
+            stop_loss_long = None
+            print ("Loss")
+            
+        if buy_price != None and stop_loss_long != None and lookback['close'][interval_id] >= buy_price + (stop_loss_long):
+            #close_position(account, lookback['close'][interval_id])
+            for position in account.positions: # Close all current positions
+                account.close_position(position, 1, lookback['close'][interval_id])
+            buy_price = None
+            stop_loss_long = None
+            print ("Profit")
+            
+        
+        if sell_price != None and stop_loss_short != None and lookback['close'][interval_id] <= sell_price - stop_loss_short:
+            #close_position(account, lookback['close'][interval_id])
+            for position in account.positions: # Close all current positions
+                account.close_position(position, 1, lookback['close'][interval_id])
+            sell_price = None
+            stop_loss_short = None
+            print ("Profit")
+            
+        if sell_price != None and stop_loss_short != None and lookback['close'][interval_id] >= sell_price + (stop_loss_short):
+            #close_position(account, lookback['close'][interval_id])
+            for position in account.positions: # Close all current positions
+                account.close_position(position, 1, lookback['close'][interval_id])
+            sell_price = None
+            stop_loss_short = None
+            print ("Loss")
+            
+        
+                
+
+                
         
        
         
@@ -156,6 +272,8 @@ def preprocess_data(list_of_stocks):
     list_of_stocks_processed = []
     for stock in list_of_stocks:
         df = pd.read_csv("data/" + stock + ".csv", parse_dates=[0])
+        # all headers to lowercase
+        df.columns = [x.lower() for x in df.columns]
         df['TP'] = (df['close'] + df['low'] + df['high'])/3 # Calculate Typical Price
         df['std'] = df['TP'].rolling(training_period).std() # Calculate Standard Deviation
         df['MA-TP'] = df['TP'].rolling(training_period).mean() # Calculate Moving Average of Typical Price
@@ -167,9 +285,17 @@ def preprocess_data(list_of_stocks):
 
 if __name__ == "__main__":
     #list_of_stocks = ["TSLA_2020-03-01_2022-01-20_1min"] 
+
+
+    #list_of_stocks = ["TSLA_2020-03-09_2022-01-28_15min"] 
     list_of_stocks = ["AAPL_2020-03-24_2022-02-12_15min"] # List of stock data csv's to be tested, located in "data/" folder 
+    #list_of_stocks = ["GOOG"]
     list_of_stocks_proccessed = preprocess_data(list_of_stocks) # Preprocess the data
-    results = tester.test_array(list_of_stocks_proccessed, logic, chart=True) # Run backtest on list of stocks using the logic function
+    testing_set = list_of_stocks_proccessed
+    
+    
+        
+    results = tester.test_array(testing_set, logic, chart=True) # Run backtest on list of stocks using the logic function
 
     print("training period " + str(training_period))
     print("standard deviations " + str(standard_deviations))

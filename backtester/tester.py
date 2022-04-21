@@ -8,7 +8,7 @@ from functools import partial
 # Function used to backtest each stock
 # Parameters: stock - the name of the stock data csv to be tested
 #             logic - the logic function to be used
-def backtest_stock(results, stock, logic, chart):
+def backtest_stock(results, stock, logic, chart=True):
     lock = mp.Lock() # Lock used to prevent errors with multiprocessing
     df = pd.read_csv("data/" + stock + ".csv", parse_dates=[0]) # Read the csv file into a dataframe to be tested
     backtest = engine.backtest(df) # Create a backtest object with the data from the csv
