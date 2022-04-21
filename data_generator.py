@@ -37,8 +37,12 @@ get_intraday_extended() function:
 """
 
 
+<<<<<<< Updated upstream
 api.get_intraday_extended('AMZN', '01-01-2015', '01-01-2022', '60min', True)
+=======
+#api.get_intraday_extended('AAPL', 'all', '', '1min', True)
+>>>>>>> Stashed changes
 # api.get_intraday_extended('GOOG', 'all', '', '1min', True)
-# api.get_intraday_extended('IBM', '01-01-2008', '01-03-2022', '1min', True)
+api.get_intraday_extended('IBM', '01-01-2008', '01-03-2022', '1min', True)
 # api.get_intraday_extended('TSLA', 'year1month2', 'year1month1', '60min', True, False)
 # api.get_intraday_extended('TSLA', 'all', 'year1month1', '15min', True, True)
