@@ -96,7 +96,7 @@ class backtest():
         print("\n---------------------------------------")
         return [round(pc1*100, 2),round(pc2*100, 2),longs,sells,shorts,covers,statistics.stdev(self.account.equity),statistics.stdev([price*self.account.initial_capital/self.data.iloc[0]['open'] for price in self.data['open']]), ]
     
-    def chart(self, show_trades=True, title="Equity Curve"):
+    def chart(self, show_trades=False, title="Equity Curve"):
         """Chart results.
 
         :param show_trades: Show trades on plot
