@@ -1,90 +1,34 @@
-from numpy import short
+import math
 import pandas as pd
 import time
 import multiprocessing as mp
+import matplotlib.pyplot as plt
+from enum import Enum, auto
+
+from numpy import diff
 
 # local imports
 from backtester import engine, tester
 from backtester import API_Interface as api
 
-# import train_test_split
-from sklearn.model_selection import train_test_split
+# Number of Standard Deviations from the mean the Bollinger Bands sit
+standard_deviations = 3.5
 
-training_period = 20 # How far the rolling average takes into calculation
-standard_deviations = 3.5 # Number of Standard Deviations from the mean the Bollinger Bands sit
 
-def enter_long(account, price):
-    if account.buying_power >0:
-        account.enter_position('long', account.buying_power, price)
+def enter_long(account, price, budget=1.0):
+    if account.buying_power > 0:
+        account.enter_position('long', account.buying_power*budget, price)
 
-def enter_short(account, price):
-    if account.buying_power >0:
-        account.enter_position('short', account.buying_power, price)
+
+def enter_short(account, price, budget=1.0):
+    if account.buying_power > 0:
+        account.enter_position('short', account.buying_power*budget, price)
+
 
 def close_position(account, price):
     for position in account.positions:
         account.close_position(position, 1, price)
 
-def stochastic_oscillator(highs, lows, closes, periods=14):
-    high = max(highs[-periods:])
-    low = min(lows[-periods:])
-    sto = (closes.iloc[-1] - low) / (high - low) * 100
-    #print(f"{sto=}")
-    return sto
-
-def relative_strength_index(opens, closes, periods=14):
-    
-    deltas = pd.Series(closes[-periods:]) - pd.Series(opens[-periods:])
-
-    gain_sum = 0
-    loss_sum = 0
-    for delta in deltas:
-        if delta > 0:
-            gain_sum += delta
-        if delta < 0:
-            loss_sum -= delta
-    
-    #print(deltas)
-    # No losses is always 100 RSI, also avoids zerodivide exception
-    if loss_sum == 0:
-        return 100
-
-    avg_gain = gain_sum/periods
-    avg_loss = loss_sum/periods
-    
-    relative_strength = avg_gain / avg_loss
-    rsi = 100 - ( 100 / (1 + relative_strength ) )
-    #print(f"{rsi=}")
-    return rsi
-
-def lowest_val(opens, close,low, periods =14):
-    # find lowest closing price in lookback
-    lowest = min(low[-periods:])
-    
-    return lowest
-
-def highest_val(opens, close,high ,periods =14):
-    # find lowest closing price in lookback
-    highest = max(high[-periods:])
-    
-    return highest
-# find ema of price 
-def ema(opens, closes, periods=14):
-    ema = closes.ewm(span=periods, adjust=False, min_periods=periods).mean()
-    return ema
-
-# build function for macd with open, close, high and low price 
-def macd(opens, closes,periods=12, short_period=26, long_period=9):
-    k = closes.ewm(span=periods, adjust=False, min_periods=periods).mean()
-    d = closes.ewm(span=short_period, adjust=False, min_periods=short_period).mean()
-    macd = k - d
-    signal = macd.ewm(span=long_period, adjust=False, min_periods=long_period).mean()
-    macd_h = macd - signal
-    # return signal and macd
-    return macd_h
-
-def internal_bar_strength():
-    pass
 
 '''
 logic() function:
@@ -95,281 +39,76 @@ logic() function:
 
     Output: none, but the account object will be modified on each call
 '''
+WARMUP_PERIOD = 20
 
-def logic(account, lookback): # Logic function to be used for each time interval in backtest 
-    
+
+class State(Enum):
+    # generate enums for states of the algorithm
+    OUT = auto()
+    LONG = auto()
+    SHORT = auto()
+    WAIT_MACD_LONG = auto()
+    WAIT_MACD_SHORT = auto()
+
+
+def logic(account, lookback):  # Logic function to be used for each time interval in backtest
+
     interval_id = len(lookback) - 1
-<<<<<<< Updated upstream
-    today = lookback["date"][interval_id].date()
-=======
-    stoch_trigger = 0
 
->>>>>>> Stashed changes
     if interval_id == 0:
-        account.status = "out"
-        structure = {"rsi":[], "sto_k":[], "sto_d":[], "lowest":[], "highest":[], "mach_h":[],"ema":[]}
-        account.stats = pd.DataFrame(structure)
+        account.status = State.OUT
+        account.pt_hits = 0
+        account.pt_misses = 0
 
-    account.stats.loc[interval_id] = [None,None,None,None,None,None,None] # add empty row
-    buy_price = None
-    stoch_trigger = 0
-    stop_loss_long = None
-    stop_loss_short = None
-    sell_price = None
-    ema_x = None
-    
-
-
-
-    if interval_id > training_period:
-        #print(f"{interval_id=}")
-<<<<<<< Updated upstream
-        rsi = relative_strength_index(lookback['open'], lookback['close'], periods=14)
-        sto_k = stochastic_oscillator(lookback['high'], lookback['low'], lookback['close'], periods=14)
-        lowest = lowest_val(lookback['open'], lookback['close'], lookback['low'] ,periods=14)
-        highest = highest_val(lookback['open'], lookback['close'], lookback['high'], periods=14)
-        mach_h = macd(lookback['open'], lookback['close'], periods=12, short_period=26, long_period=9)
-        ema_x = ema(lookback['open'], lookback['close'], periods=14)
-        account.stats["rsi"][interval_id] = rsi
-        account.stats["sto_k"][interval_id] = sto_k
-        account.stats['sto_d'] = account.stats.iloc[:,1].rolling(window=3).mean()
-        account.stats['lowest'] = lowest
-        account.stats['highest'] = highest
-        account.stats['mach_h'] = mach_h
-        account.stats['ema'] = ema_x
-        
-
-
-        # create trigger if sto_k and sto_d are both below 30 as true
-        # while trigger is true if rsi is above 50 enter long
-    if interval_id > training_period:
-        if account.stats["sto_k"][interval_id] < 20 and account.stats["sto_d"][interval_id] < 20:
-            stoch_trigger = 1
-        if account.stats["sto_k"][interval_id] > 80 and account.stats["sto_d"][interval_id] > 80:
-            stoch_trigger = -1
-
-        if account.stats["rsi"][interval_id] > 50 and account.stats["mach_h"][interval_id] > 0 and lookback['close'][interval_id] < account.stats['ema'][interval_id]:
-            if stoch_trigger == 1:
-                for position in account.positions: # Close all current positions
-                    account.close_position(position, 1, lookback['close'][interval_id])
-                if(account.buying_power > 0):
-                    account.enter_position('long', account.buying_power, lookback['close'][interval_id])
-                    #enter_long(account, lookback['close'][interval_id])
-                    buy_price = lookback['close'][interval_id]
-                    stoch_trigger = 0
-                    stop_loss_long = buy_price-account.stats['lowest'][interval_id]
-        if account.stats["rsi"][interval_id] < 50 and account.stats["mach_h"][interval_id] < 0 and lookback['close'][interval_id] < account.stats['ema'][interval_id]:
-            if stoch_trigger == -1:
-                for position in account.positions: # Close all current positions
-                    account.close_position(position, 1, lookback['close'][interval_id])
-                if(account.buying_power > 0):
-                    account.enter_position('short', account.buying_power, lookback['close'][interval_id])
-                #enter_short(account, lookback['close'][interval_id])
-                    sell_price = lookback['close'][interval_id]
-                    stoch_trigger = 0
-                    stop_loss_short = sell_price+account.stats['highest'][interval_id]
-    
-        
-        if buy_price != None and stop_loss_long != None and lookback['close'][interval_id] <= buy_price - stop_loss_long:
-            #close_position(account, lookback['close'][interval_id])
-            for position in account.positions: # Close all current positions
-                account.close_position(position, 1, lookback['close'][interval_id])
-            buy_price = None
-            stop_loss_long = None
-            print ("Loss")
-            
-        if buy_price != None and stop_loss_long != None and lookback['close'][interval_id] >= buy_price + (stop_loss_long):
-            #close_position(account, lookback['close'][interval_id])
-            for position in account.positions: # Close all current positions
-                account.close_position(position, 1, lookback['close'][interval_id])
-            buy_price = None
-            stop_loss_long = None
-            print ("Profit")
-            
-        
-        if sell_price != None and stop_loss_short != None and lookback['close'][interval_id] <= sell_price - stop_loss_short:
-            #close_position(account, lookback['close'][interval_id])
-            for position in account.positions: # Close all current positions
-                account.close_position(position, 1, lookback['close'][interval_id])
-            sell_price = None
-            stop_loss_short = None
-            print ("Profit")
-            
-        if sell_price != None and stop_loss_short != None and lookback['close'][interval_id] >= sell_price + (stop_loss_short):
-            #close_position(account, lookback['close'][interval_id])
-            for position in account.positions: # Close all current positions
-                account.close_position(position, 1, lookback['close'][interval_id])
-            sell_price = None
-            stop_loss_short = None
-            print ("Loss")
-            
-        
-=======
+    if interval_id > WARMUP_PERIOD:
+        # print(f"{interval_id=}")
         rsi = lookback["rsi"][interval_id]
         sto_k = lookback["sto_k"][interval_id]
         sto_d = lookback["sto_d"][interval_id]
-<<<<<<< Updated upstream
-        ema_x = lookback["ema"][interval_id]
-        macd_x = lookback["macd"][interval_id]
-        signal_x = lookback["signal"][interval_id]
-        hist = macd_x - signal_x
-=======
         ema_val = lookback["ema"][interval_id]
->>>>>>> Stashed changes
 
-        if account.status == "long":
+        # look to exit while longing
+        if account.status == State.LONG:
 
             if lookback["close"][interval_id] < account.stoploss:
                 close_position(account, lookback["close"][interval_id])
                 account.stoploss = None
                 account.profit_target = None
-                account.status = "out"
+                account.status = State.OUT
                 account.pt_misses += 1
-                print(f"\tstoploss triggered at {interval_id=}")
-                print(f"{account.pt_hits}/{account.pt_hits+account.pt_misses} targets hit")
+                print(f"stoploss triggered at {interval_id=}")
+                print(
+                    f"{account.pt_hits}/{account.pt_hits+account.pt_misses} targets hit")
 
-            elif rsi < 35 and macd_over_signal(lookback, interval_id) == False:
+            elif rsi < 35 and not macd_over_signal(lookback, interval_id):
                 close_position(account, lookback["close"][interval_id])
                 account.stoploss = None
                 account.profit_target = None
-                account.status = "out"
+                account.status = State.OUT
                 account.pt_hits += 1
-                print(f"\tPROFIT TARGET HIT at {interval_id=}")
-                print(f"{account.pt_hits}/{account.pt_hits+account.pt_misses} targets hit")
+                print(f"PROFIT TARGET HIT at {interval_id=}")
+                print(
+                    f"{account.pt_hits}/{account.pt_hits+account.pt_misses} targets hit")
 
-        if account.status == "short":
+        # look to exit while shorting
+        if account.status == State.SHORT:
 
             if lookback["close"][interval_id] > account.stoploss:
                 close_position(account, lookback["close"][interval_id])
                 account.stoploss = None
                 account.profit_target = None
-                account.status = "out"
+                account.status = State.OUT
                 account.pt_misses += 1
-                print(f"\tstoploss triggered at {interval_id=}")
-                print(f"{account.pt_hits}/{account.pt_hits+account.pt_misses} targets hit")
+                print(f"stoploss triggered at {interval_id=}")
+                print(
+                    f"{account.pt_hits}/{account.pt_hits+account.pt_misses} targets hit")
 
-            elif rsi > 65 and macd_over_signal(lookback, interval_id) == True:
+            elif rsi > 65 and macd_over_signal(lookback, interval_id):
                 close_position(account, lookback["close"][interval_id])
                 account.stoploss = None
                 account.profit_target = None
-                account.status = "out"
+                account.status = State.OUT
                 account.pt_hits += 1
-<<<<<<< Updated upstream
-                print(f"\tPROFIT TARGET HIT at {interval_id=}")
-                print(f"{account.pt_hits}/{account.pt_hits+account.pt_misses} targets hit")
-
-        
-        if account.status == "out":
-            if sto_k < 30 and sto_d < 30:
-                stoch_trigger =1
-
-            if rsi > 50 and stoch_trigger == 1 and lookback["close"][interval_id] > ema_x and hist > 0:
-                print(f"sto & rsi suggest long {interval_id=}")
->>>>>>> Stashed changes
-                
-
-                
-<<<<<<< Updated upstream
-=======
-                # =====move this to wait_macd_buy if block when macd  arrives=======
-                enter_long(account, lookback["close"][interval_id])
-                stoch_trigger =0
-                account.status = "long"
-
-                # placeholder stoploss
-                account.stoploss = lookback["low"].iloc[-1].min()
-                account.profit_target = lookback["close"][interval_id] + (lookback["close"][interval_id]-account.stoploss)*2.25
-                print(f"\t{account.stoploss=}\n\t{account.profit_target=}")
-
-                # =================================================================
-                
-                
-        if account.status == "out":
-            
-            if sto_k > 70 and sto_d > 70:
-                stoch_trigger = -1
-
-            if rsi < 50 and stoch_trigger == -1 and lookback["close"][interval_id] < ema_x and hist < 0:
-                print(f"sto & rsi suggest short {interval_id=}")
-                
-                account.status = "wait_macd_buy"
-                
-                # =====move this to wait_macd_buy if block when macd  arrives=======
-                enter_short(account, lookback["close"][interval_id])
-                stoch_trigger =0
-                account.status = "short"
-
-                # placeholder stoploss
-                account.stoploss = lookback["high"].iloc[-1].max()
-                account.profit_target = lookback["close"][interval_id] - (lookback["close"][interval_id]-account.stoploss)*2.25
-                print(f"\t{account.stoploss=}\n\t{account.profit_target=}")
-                
->>>>>>> Stashed changes
-        
-       
-        
-def daily_logic(account, lookback):   
-    interval_id = len(lookback) - 1
-    today = lookback["date"][interval_id].date()
-    is_first_day = False
-    if interval_id == 0:
-        # first day has no previous day
-        # init variables
-        is_new_day = True
-        is_first_day = True
-        account.temp_min = None
-        account.temp_max = None
-        account.day_num = 0
-        structure = {"open":[], "close":[], "start_interval":[], "end_interval":[], "high":[], "low":[], "rsi":[], "sto":[]}
-        account.daily_lookback = pd.DataFrame(structure)
-        account.daily_lookback["open"][account.day_num] = lookback["open"][interval_id]
-        # Day 0 data
-        account.daily_lookback.loc[account.day_num] = [ lookback["open"][interval_id], None, interval_id, None, None, None, None, None ]
-
-    elif today != lookback["date"][interval_id-1].date():
-
-        # Fill yesterday data
-        account.day_num += 1
-        account.daily_lookback["close"][account.day_num-1] = lookback["close"][interval_id-1]
-        account.daily_lookback["end_interval"][account.day_num-1] = interval_id-1
-        account.daily_lookback["high"][account.day_num-1] = account.temp_max
-        account.daily_lookback["low"][account.day_num-1] = account.temp_min
-        # Reset counters
-        account.temp_max = None
-        account.temp_min = None
-
-        # Get and store indicators
-        if account.day_num > training_period:
-            rsi = relative_strength_index(account.daily_lookback["open"], account.daily_lookback["close"], periods=training_period)
-            account.daily_lookback["rsi"][account.day_num-1] = rsi
-
-            sto = stochastic_oscillator(account.daily_lookback["high"], account.daily_lookback["low"], account.daily_lookback["close"])
-            account.daily_lookback["sto"][account.day_num-1] = sto
-        
-        # Init today data
-        account.daily_lookback.loc[account.day_num] = [ lookback["open"][interval_id], None, interval_id, None, None, None, None, None ]
-        print("day:",account.day_num-1,"interval:", interval_id)
-        print(account.daily_lookback.loc[account.day_num-1],"\n")
-
-<<<<<<< Updated upstream
-        # daily decision logic here
-=======
-def ema(data, periods=50):
-    return data["close"].ewm(span=periods, adjust=False).mean()
-
-def macd(data, fast=12, slow=26, smooth=9):
-
-    exp1 = data["close"].ewm(span = fast, adjust = False).mean()
-    exp2 = data["close"].ewm(span = slow, adjust = False).mean()
-
-    macd = exp1 - exp2
-    signal = macd.ewm(span = smooth, adjust = False).mean()
-
-    #signal = macd.ewm(span=smooth, adjust=False, min_periods=long_period).mean()
-
-    macd_h = macd - signal
-    return (macd, signal)
-=======
                 print(f"PROFIT TARGET HIT at {interval_id=}")
                 print(
                     f"{account.pt_hits}/{account.pt_hits+account.pt_misses} targets hit")
@@ -377,7 +116,7 @@ def macd(data, fast=12, slow=26, smooth=9):
         # look to buy
         if account.status == State.OUT:
 
-            if sto_k < 20 and sto_d < 20 and rsi > 50  and lookback["close"][interval_id] > ema_val:
+            if sto_k < 20 and sto_d < 20 and rsi > 50 and lookback["close"][interval_id] > ema_val:
                 print(f"STO & RSI suggest LONG at {interval_id=}")
 
                 account.status = State.WAIT_MACD_LONG
@@ -408,7 +147,7 @@ def macd(data, fast=12, slow=26, smooth=9):
                     abs(price-find_swing(lookback, high_low='low'))/price, 0.0015)
                 # stoploss_diff = 0.0015
                 account.stoploss = price*(1-stoploss_diff)
-                account.profit_target = price*(1 + stoploss_diff*2)
+                account.profit_target = price*(1 + stoploss_diff*3)
                 print(f"\t{account.stoploss=}\t{account.profit_target=}")
 
         # wait for macd confirmation for short
@@ -433,7 +172,7 @@ def macd(data, fast=12, slow=26, smooth=9):
                     abs(price-find_swing(lookback, high_low='low'))/price, 0.0015)
                 # stoploss_diff = 0.0015
                 account.stoploss = price*(1+stoploss_diff)
-                account.profit_target = price*(1 - stoploss_diff*2)
+                account.profit_target = price*(1 - stoploss_diff*3)
                 print(f"\t{account.stoploss=}\t{account.profit_target=}")
 
 
@@ -472,19 +211,14 @@ def calc_rsi(data, periods=14):
     rsi = 100 - (100/(1 + rsi))
     return rsi
 
->>>>>>> Stashed changes
 
 def calc_sto(data, periods=14, k=3, d=3):
     high = data["high"].rolling(periods).max()
     low = data["low"].rolling(periods).min()
-    sto = (data["close"]-low)/(high-low) * 100
+    sto = ((data["close"]-low)/(high-low)) * 100
     sto_k = sto.rolling(k).mean()
     sto_d = sto_k.rolling(d).mean()
->>>>>>> Stashed changes
 
-<<<<<<< Updated upstream
-    # interval decision logic here
-=======
     return (sto_k, sto_d)
 
 
@@ -496,23 +230,15 @@ def calc_macd(data, slow=26, fast=12, macd=9):
 
     return (macd_ewp, macd_signal)
 
-# build ema function
-def calc_ema(data, periods=14):
-    ema = data["close"].ewm(span=periods, adjust=False).mean()
-    return ema
-
 
 def macd_over_signal(data, interval_id):
     return data['MACD'][interval_id] > data['MACD SIGNAL'][interval_id]
->>>>>>> Stashed changes
 
-    # For the daily min/max
-    if account.temp_max is None or account.temp_min is None:
-        account.temp_max = max(lookback["high"][interval_id], lookback["low"][interval_id])
-        account.temp_min = min(lookback["high"][interval_id], lookback["low"][interval_id])
-    else:
-        account.temp_max = max(lookback["high"][interval_id], lookback["low"][interval_id], account.temp_max)
-        account.temp_min = min(lookback["high"][interval_id], lookback["low"][interval_id], account.temp_min)
+# build ema function
+def ema(data, periods=50):
+    return data["close"].ewm(span=periods, adjust=False).mean()
+
+
 
 '''
 preprocess_data() function:
@@ -523,78 +249,47 @@ preprocess_data() function:
 
     Output: list_of_stocks_processed - a list of processed stock data csvs
 '''
+
+
 def preprocess_data(list_of_stocks):
     list_of_stocks_processed = []
     for stock in list_of_stocks:
-        df = pd.read_csv("data/" + stock + ".csv", parse_dates=[0])
-<<<<<<< Updated upstream
-        # all headers to lowercase
-        df.columns = [x.lower() for x in df.columns]
-        df['TP'] = (df['close'] + df['low'] + df['high'])/3 # Calculate Typical Price
-        df['std'] = df['TP'].rolling(training_period).std() # Calculate Standard Deviation
-        df['MA-TP'] = df['TP'].rolling(training_period).mean() # Calculate Moving Average of Typical Price
-        df['BOLU'] = df['MA-TP'] + standard_deviations*df['std'] # Calculate Upper Bollinger Band
-        df['BOLD'] = df['MA-TP'] - standard_deviations*df['std'] # Calculate Lower Bollinger Band
-        df.to_csv("data/" + stock + "_Processed.csv", index=False) # Save to CSV
-=======
-        
+        df = pd.read_csv(f'data/{stock}.csv', parse_dates=[0])
+
         df2 = df.groupby(
-            pd.Grouper(key="date", freq="1h")
+            pd.Grouper(key="date", freq="30T")
         ).agg({
-            'date':'first',
-            'open':'first',
-            'high':'max',
-            'low':'min',
-            'close':'last',
-            'volume':'last'
+            'date': 'first',
+            'open': 'first',
+            'high': 'max',
+            'low': 'min',
+            'close': 'last',
+            'volume': 'last'
         }).dropna()
         df2["rsi"] = calc_rsi(df2, 14)
-<<<<<<< Updated upstream
-        (df2["sto_k"], df2["sto_d"]) = calc_sto(df2,14)
-        (df2["macd"], df2["signal"]) = macd(df2, 12, 26, 9)
-        df2["ema"] = ema(df2, 14)
-        # get the percentage change from the previous day
-        df2["chg"] = df2["close"].pct_change()
-        df2.to_csv("data/" + stock + "_Processed.csv", index=False) # Save to CSV
->>>>>>> Stashed changes
-=======
-        df2["ema"] = calc_ema(df2, 50)
+        df2["ema"] = ema(df2, 50)
         (df2['MACD'], df2['MACD SIGNAL']) = calc_macd(df2)
         (df2["sto_k"], df2["sto_d"]) = calc_sto(df2, 14)
         df2.to_csv("data/" + stock + "_Processed.csv",
                    index=False)  # Save to CSV
->>>>>>> Stashed changes
         list_of_stocks_processed.append(stock + "_Processed")
     return list_of_stocks_processed
 
+
+def plot_time_series(file):
+    df = pd.read_csv(file)
+
+    df.plot(x='date', y=['close', 'sto_k', 'sto_d'])
+    plt.show()
+
+
 if __name__ == "__main__":
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-    #list_of_stocks = ["TSLA_2020-03-01_2022-01-20_1min"] 
-
-
-    #list_of_stocks = ["TSLA_2020-03-09_2022-01-28_15min"] 
-    list_of_stocks = ["AAPL_2020-03-24_2022-02-12_15min"] # List of stock data csv's to be tested, located in "data/" folder 
-    #list_of_stocks = ["GOOG"]
-=======
-    #list_of_stocks = ["GOOG_2020-04-20_2020-04-20_1min"] 
-    #list_of_stocks = ["GOOG_2020-04-30_2022-03-21_1min", "AAPL_2020-03-24_2022-02-12_1min", "TSLA_2020-03-01_2022-01-20_1min"] # List of stock data csv's to be tested, located in "data/" folder 
-    list_of_stocks = ["AAPL_2020-03-24_2022-02-12_15min"]
->>>>>>> Stashed changes
-    list_of_stocks_proccessed = preprocess_data(list_of_stocks) # Preprocess the data
-    testing_set = list_of_stocks_proccessed
-    
-    
-        
-    results = tester.test_array(testing_set, logic, chart=True) # Run backtest on list of stocks using the logic function
-
-    print("training period " + str(training_period))
-=======
 
     # plot_time_series('data/AAPL_2020-03-24_2022-02-12_1min_Processed.csv')
 
-    #list_of_stocks = ["AAPL_2020-03-24_2022-02-12_15min","TSLA_2020-03-09_2022-01-28_15min"]
-    list_of_stocks = ["GOOG_2020-04-30_2022-03-21_1min", "AAPL_2020-03-24_2022-02-12_1min","TSLA_2020-03-01_2022-01-20_1min"]  # List of stock data csv's to be tested, located in "data/" folder
+    # list_of_stocks = ["GOOG_2020-04-20_2020-04-20_1min"]
+    list_of_stocks = ["GOOG_2020-04-30_2022-03-21_1min", "AAPL_2020-03-24_2022-02-12_1min",
+                      "TSLA_2020-03-01_2022-01-20_1min"]  # List of stock data csv's to be tested, located in "data/" folder
     list_of_stocks_proccessed = preprocess_data(
         list_of_stocks)  # Preprocess the data
     # Run backtest on list of stocks using the logic function
@@ -602,7 +297,7 @@ if __name__ == "__main__":
     # results = tester.test_array(list_of_stocks, logic, chart=True) # Run backtest on list of stocks using the logic function
 
     print("training period " + str(WARMUP_PERIOD))
->>>>>>> Stashed changes
     print("standard deviations " + str(standard_deviations))
-    df = pd.DataFrame(list(results), columns=["Buy and Hold","Strategy","Longs","Sells","Shorts","Covers","Stdev_Strategy","Stdev_Hold","Stock"]) # Create dataframe of results
-    df.to_csv("results/Test_Results.csv", index=False) # Save results to csv
+    df = pd.DataFrame(list(results), columns=["Buy and Hold", "Strategy", "Longs", "Sells",
+                      "Shorts", "Covers", "Stdev_Strategy", "Stdev_Hold", "Stock"])  # Create dataframe of results
+    df.to_csv("results/Test_Results.csv", index=False)  # Save results to csv

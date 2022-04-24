@@ -94,13 +94,8 @@ class backtest():
         print("--------------------")
         print("Total Trades : {0}".format(longs + sells + shorts + covers))
         print("\n---------------------------------------")
-<<<<<<< Updated upstream
         return [round(pc1*100, 2),round(pc2*100, 2),longs,sells,shorts,covers,statistics.stdev(self.account.equity),statistics.stdev([price*self.account.initial_capital/self.data.iloc[0]['open'] for price in self.data['open']]), ]
     
-=======
-        return [round(pc1*100, 2), round(pc2*100, 2), longs, sells, shorts, covers, statistics.stdev(self.account.equity), statistics.stdev([price*self.account.initial_capital/self.data.iloc[0]['open'] for price in self.data['open']]), ]
-
->>>>>>> Stashed changes
     def chart(self, show_trades=True, title="Equity Curve"):
         """Chart results.
 
