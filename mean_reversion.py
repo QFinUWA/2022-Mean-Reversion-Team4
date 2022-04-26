@@ -255,6 +255,8 @@ def preprocess_data(list_of_stocks):
     list_of_stocks_processed = []
     for stock in list_of_stocks:
         df = pd.read_csv(f'data/{stock}.csv', parse_dates=[0])
+        # make all headers lowercase
+        df.columns = [x.lower() for x in df.columns]
 
         df2 = df.groupby(
             pd.Grouper(key="date", freq="30T")
@@ -288,8 +290,8 @@ if __name__ == "__main__":
     # plot_time_series('data/AAPL_2020-03-24_2022-02-12_1min_Processed.csv')
 
     # list_of_stocks = ["GOOG_2020-04-20_2020-04-20_1min"]
-    list_of_stocks = ["GOOG_2020-04-30_2022-03-21_1min", "AAPL_2020-03-24_2022-02-12_1min",
-                      "TSLA_2020-03-01_2022-01-20_1min"]  # List of stock data csv's to be tested, located in "data/" folder
+    list_of_stocks = ["NFLX"]
+    #list_of_stocks = ["GOOG_2020-04-30_2022-03-21_1min", "AAPL_2020-03-24_2022-02-12_1min","TSLA_2020-03-01_2022-01-20_1min"]  # List of stock data csv's to be tested, located in "data/" folder
     list_of_stocks_proccessed = preprocess_data(
         list_of_stocks)  # Preprocess the data
     # Run backtest on list of stocks using the logic function
