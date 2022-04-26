@@ -67,6 +67,7 @@ def logic(account, lookback):  # Logic function to be used for each time interva
         rsi = lookback["rsi"][interval_id]
         sto_k = lookback["sto_k"][interval_id]
         sto_d = lookback["sto_d"][interval_id]
+        ema_val = lookback["ema"][interval_id]
 
         price = lookback["close"][interval_id]
 
@@ -83,7 +84,7 @@ def logic(account, lookback):  # Logic function to be used for each time interva
                 print(
                     f"{account.pt_hits}/{account.pt_hits+account.pt_misses} targets hit")
 
-            elif lookback["close"][interval_id] > account.profit_target:
+            elif rsi < 40 or not macd_over_signal(lookback, interval_id) :
                 close_position(account, lookback["close"][interval_id])
                 account.stoploss = None
                 account.profit_target = None
@@ -98,7 +99,7 @@ def logic(account, lookback):  # Logic function to be used for each time interva
 
             # update stoploss
             if lookback["close"][interval_id-1] > price:
-                account.stoploss = price*(1+STOPLOSS)
+                account.stoploss = price*(1+STOPLOSS*2)
 
             if lookback["close"][interval_id] > account.stoploss:
                 close_position(account, lookback["close"][interval_id])
@@ -110,7 +111,7 @@ def logic(account, lookback):  # Logic function to be used for each time interva
                 print(
                     f"{account.pt_hits}/{account.pt_hits+account.pt_misses} targets hit")
 
-            elif lookback["close"][interval_id] < account.profit_target:
+            elif rsi > 60 or macd_over_signal(lookback, interval_id):
                 close_position(account, lookback["close"][interval_id])
                 account.stoploss = None
                 account.profit_target = None
@@ -133,7 +134,7 @@ def logic(account, lookback):  # Logic function to be used for each time interva
 
                 account.status = State.WAIT_MACD_LONG'''
 
-            if sto_k > 80 and sto_d > 80 and rsi < 50:
+            if sto_k > 80 and sto_d > 80 and rsi < 50 and lookback["close"][interval_id] < ema_val:
                 print(f"STO & RSI suggest SHORT at {interval_id=}")
                 account.status = State.WAIT_MACD_SHORT
 
@@ -221,6 +222,9 @@ def calc_macd(data, slow=26, fast=12, macd=9):
 def macd_over_signal(data, interval_id):
     return data['MACD'][interval_id] > data['MACD SIGNAL'][interval_id]
 
+def ema(data, periods=50):
+    return data["close"].ewm(span=periods, adjust=False).mean()
+
 
 '''
 preprocess_data() function:
@@ -249,6 +253,7 @@ def preprocess_data(list_of_stocks):
             'volume': 'last'
         }).dropna()
         df2["rsi"] = calc_rsi(df2, 14)
+        df2["ema"] = ema(df2, 100)
         (df2['MACD'], df2['MACD SIGNAL']) = calc_macd(df2)
         (df2["sto_k"], df2["sto_d"]) = calc_sto(df2, 14)
         df2.to_csv("data/" + stock + "_Processed.csv",
