@@ -49,6 +49,7 @@ class State(Enum):
     SHORT = auto()
     WAIT_MACD_LONG = auto()
     WAIT_MACD_SHORT = auto()
+    BAH = auto()
 
 
 def logic(account, lookback):  # Logic function to be used for each time interval in backtest
@@ -114,15 +115,19 @@ def logic(account, lookback):  # Logic function to be used for each time interva
 
         # look to buy
         if account.status == State.OUT:
-
+            enter_long(account, lookback["close"][interval_id])
+            account.status = State.BAH
+            
+        if account.status == State.BAH:
+            ''' Commented out since BAH makes this redundant
             if sto_k < 20 and sto_d < 20 and rsi > 50:
                 print(f"STO & RSI suggest LONG at {interval_id=}")
+                #close_position(account, lookback["close"][interval_id])
 
-                account.status = State.WAIT_MACD_LONG
+                account.status = State.WAIT_MACD_LONG'''
 
-            elif sto_k > 80 and sto_d > 80 and rsi < 50:
+            if sto_k > 80 and sto_d > 80 and rsi < 50:
                 print(f"STO & RSI suggest SHORT at {interval_id=}")
-
                 account.status = State.WAIT_MACD_SHORT
 
         # wait for macd confirmation for long
@@ -155,7 +160,7 @@ def logic(account, lookback):  # Logic function to be used for each time interva
 
             # if sto condition or rsi condition are untrue then set to out
             if sto_k < 20 or sto_d < 20:
-                print('STO < 80 - Finished waiting for MACD')
+                print('STO < 20 - Finished waiting for MACD')
                 account.status = State.OUT
 
             elif not macd_over_signal(lookback, interval_id):
@@ -163,6 +168,8 @@ def logic(account, lookback):  # Logic function to be used for each time interva
                 price = lookback["close"][interval_id]
                 print(
                     f"\tMACD short confirmed buy at {interval_id=}, {price=}")
+                # Exit long
+                close_position(account, lookback["close"][interval_id])
                 enter_short(account, price)
                 account.status = State.SHORT
 
