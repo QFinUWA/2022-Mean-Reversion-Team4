@@ -67,11 +67,11 @@ RSI = 100 - (\frac{100}{1 + \frac{avg gain}{avg loss}})
 
 In our algorithm, average gain and loss were exponential weighted mean calculatations, and was calculated over a 14-day lookback period.
 
-### Moving Average Convergence Divergence
+### Moving Average Convergence Divergence (MACD)
 
-Moving Average Convergence Divergence is a momentum indicator based on the relationship between two exponental moving averages of different period lengths.  The subtraction of these two reveals the relative shift in the market between the two lookback periods in use.  This is used in conjunction with a third moving average of an even shorter period to represent the signal line.
+Moving Average Convergence Divergence (MACD) is a momentum indicator based on the relationship between two exponental moving averages of different period lengths.  The subtraction of these two reveals the relative shift in the market between the two lookback periods in use.  This is used in conjunction with a third moving average of an even shorter period to represent the signal line.
 
-In our algorithm these two moving averages converging is used as a signal to enter the market, when previous conditions have been met.  We used a 26-day period and a 12-day period for fast and slow metrics, and a 9-day period for the signal line.
+In our algorithm these two moving averages converging is used as a signal to enter the market, when previous conditions have been met. We used a 26-day period and a 12-day period for fast and slow metrics, and a 9-day period for the signal line, based on best common practice.
 
 ## Algorithm
 
@@ -89,13 +89,19 @@ The inverse is true for short positions.  If the Stochastic Oscillator is above 
 
 ### Stoploss and Profit Target
 
-PUT EXPLANATION OF STOPLOSS AND PROFIT TARGET MATH HERE
+The stoploss and profit target are implemented as the price points at which we should exit our trade. The formula for the stoploss (*SL*) and take profit (*TP*) at \begin{math}t=0\end{math} from when the position is entered depend on the hyperparamter *STOPLOSS* (set to 0.0025 for demonstrative purposes) and is as follows for shorting:
 
 \begin{center}
 \begin{math}
-stoploss math here
+    \begin{align}
+    SL_0 &= PRICE_0*(1+STOPLOSS)
+    TP_0 &= PRICE_0*(1-2*STOPLOSS) 
+    \end{align}
 \end{math}
-\end{center}
+
+Note that for long positions the plus and minus signs would be reversed. 
+
+As the price increases and decreases we update the stoploss for short positions - if the price decreases, update the stoploss to the current price point. This ensures we don't hold on to a position that has diverged profitably away from its buying point for too long - we sell it when it begins to fall rather then when it has fallen. 
 
 ### Combined Implementation
 
@@ -165,8 +171,13 @@ Total Trades : 123
 
 ### Potential Improvements
 
-Our algorithm is limited by size of the stoploss and profit targets, and in our testing we found various stoploss parameters were favourable under different condition.  Allowing the stoploss parameter to be variable depending on wider conditions could result in much higher returns.
+Firstly, we could make major improvements to the stoploss. As implemented the stoploss is calulated as a constant percentage of the price at purchase. This flat rate could be optimised to a specific stock in practice, and from testing certain values worked better for some stocks and worse for others. Furthermore the stoploss could implement a wide array of market measures to dynamically fit the market conditions, which could limit losses further and result in higher resturns.
 
-Another potential improvement is altering the stoploss to be dynamic per market position.  Having the stoploss move in response to market movements could limit losses further and result in higher returns.
+The update rule for the stoploss could be implemented in a similar way to the takeprofit - however in our testing it gave negative improvements. Currently the only way the short position exits is if it hits the takeprofit or the stoploss - however the need for a takeprofit is debatable - as long as the stoploss is non-decreasing we can always realise our profits.  
 
-FURTHER IMPROVEMENTS
+Secondly, the logic we chose to investigate used three different tried and tested market indicators, however the rules for when to enter or exit a position was arbitary. A future improvement could be to use each market measure and combine them into a single value between -1 and 1 that incidicates when to buy and sell based on mean reversion. Each indicator would be weighted by a machine learning model that optimises the weights for a specific stock. 
+
+Lastly, there are multiple hyperparamters to our algorithm. For example, the MACD moving average window sizes, thresholds for RSI, STOPLOSS percentage, stochastic threshold, etc. The values presented in our algorithm were picked based on common best practice - however these parameters should be optimsed for a specific asset. This can be done through manual testing, further financial analysis or as an optimisation task for machine learning. 
+
+# I feel like this can be reworded and worked in somewhere. 
+In our implementation, we used a default strategy when our algorithm was out of the market. We chose buy-and-hold as our default strategy, however this is equivalent to taking a long position. As our algorithm should be used as an indicator ontop of some other strategy about weather to buy or to sell at a certain time, when we chose to buy this would be unnoticable as it is the same as the default strategy.  
