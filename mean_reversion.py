@@ -12,8 +12,19 @@ from numpy import diff
 from backtester import engine, tester
 from backtester import API_Interface as api
 
-# Number of Standard Deviations from the mean the Bollinger Bands sit
-standard_deviations = 3.5
+
+WARMUP_PERIOD = 20
+STOPLOSS = 0.0025
+
+
+# generate enums for states of the algorithm
+class State(Enum):
+    OUT = auto()
+    LONG = auto()
+    SHORT = auto()
+    WAIT_MACD_LONG = auto()
+    WAIT_MACD_SHORT = auto()
+    BAH = auto()
 
 
 def enter_long(account, price, budget=1.0):
@@ -40,18 +51,6 @@ logic() function:
 
     Output: none, but the account object will be modified on each call
 '''
-WARMUP_PERIOD = 20
-STOPLOSS = 0.0025
-
-
-class State(Enum):
-    # generate enums for states of the algorithm
-    OUT = auto()
-    LONG = auto()
-    SHORT = auto()
-    WAIT_MACD_LONG = auto()
-    WAIT_MACD_SHORT = auto()
-    BAH = auto()
 
 
 def logic(account, lookback):  # Logic function to be used for each time interval in backtest
@@ -100,8 +99,6 @@ def logic(account, lookback):  # Logic function to be used for each time interva
             # update stoploss
             if lookback["close"][interval_id-1] > price:
                 account.stoploss = price*(1+STOPLOSS)
-            # else:
-            #     account.profit_target = price*(1 - STOPLOSS*2)
 
             if lookback["close"][interval_id] > account.stoploss:
                 close_position(account, lookback["close"][interval_id])
@@ -186,27 +183,7 @@ def logic(account, lookback):  # Logic function to be used for each time interva
                 print(f"\t{account.stoploss=}\t{account.profit_target=}")
 
 
-# I have unit tested this to a moderate degree
-
-
-def find_swing(data, window=20, high_low='high'):
-    def find(x): return max(x) if high_low == 'high' else min(x)
-    return find([r for r in reversed(data[high_low])][1:window])
-
-
 def calc_rsi(data, periods=14):
-    # deltas = data["close"]-data["open"]
-
-    # gains = 0 * deltas
-    # losses = 0 * deltas
-
-    # gains[deltas > 0] = deltas[deltas > 0]
-    # losses[deltas < 0] = deltas[deltas < 0]
-
-    # avg_gains = gains.rolling(periods).mean()
-    # avg_losses = losses.rolling(periods).mean()
-    # relative_strength = abs(avg_gains / avg_losses)
-    # rsi = 100 - (100 / (1 + relative_strength))
     close_delta = data['close'].diff()
 
     # Make two series: one for lower closes and one for higher closes
@@ -303,7 +280,6 @@ if __name__ == "__main__":
     # results = tester.test_array(list_of_stocks, logic, chart=True) # Run backtest on list of stocks using the logic function
 
     print("training period " + str(WARMUP_PERIOD))
-    print("standard deviations " + str(standard_deviations))
     df = pd.DataFrame(list(results), columns=["Buy and Hold", "Strategy", "Longs", "Sells",
                       "Shorts", "Covers", "Stdev_Strategy", "Stdev_Hold", "Stock"])  # Create dataframe of results
     df.to_csv("results/Test_Results.csv", index=False)  # Save results to csv
