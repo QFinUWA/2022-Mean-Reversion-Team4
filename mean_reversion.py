@@ -1,4 +1,5 @@
 import math
+from pickle import STOP
 import pandas as pd
 import time
 import multiprocessing as mp
@@ -40,6 +41,7 @@ logic() function:
     Output: none, but the account object will be modified on each call
 '''
 WARMUP_PERIOD = 20
+STOPLOSS = 0.0025
 
 
 class State(Enum):
@@ -67,6 +69,8 @@ def logic(account, lookback):  # Logic function to be used for each time interva
         sto_k = lookback["sto_k"][interval_id]
         sto_d = lookback["sto_d"][interval_id]
 
+        price = lookback["close"][interval_id]
+
         # look to exit while longing
         if account.status == State.LONG:
 
@@ -93,6 +97,12 @@ def logic(account, lookback):  # Logic function to be used for each time interva
         # look to exit while shorting
         if account.status == State.SHORT:
 
+            # update stoploss
+            if lookback["close"][interval_id-1] > price:
+                account.stoploss = price*(1+STOPLOSS)
+            # else:
+            #     account.profit_target = price*(1 - STOPLOSS*2)
+
             if lookback["close"][interval_id] > account.stoploss:
                 close_position(account, lookback["close"][interval_id])
                 account.stoploss = None
@@ -117,7 +127,7 @@ def logic(account, lookback):  # Logic function to be used for each time interva
         if account.status == State.OUT:
             enter_long(account, lookback["close"][interval_id])
             account.status = State.BAH
-            
+
         if account.status == State.BAH:
             ''' Commented out since BAH makes this redundant
             if sto_k < 20 and sto_d < 20 and rsi > 50:
@@ -141,17 +151,14 @@ def logic(account, lookback):  # Logic function to be used for each time interva
 
             elif macd_over_signal(lookback, interval_id):
                 # then buy and change status to long
-                price = lookback["close"][interval_id]
+
                 print(f"\tMACD long confirmed buy at {interval_id=}, {price=}")
                 enter_long(account, price)
                 account.status = State.LONG
 
                 # placeholder stoploss
-                stoploss_diff = min(
-                    abs(price-find_swing(lookback, high_low='low'))/price, 0.0015)
-                # stoploss_diff = 0.0015
-                account.stoploss = price*(1-stoploss_diff)
-                account.profit_target = price*(1 + stoploss_diff*3)
+                account.stoploss = price*(1-STOPLOSS)
+                account.profit_target = price*(1 + STOPLOSS*1.5)
                 print(f"\t{account.stoploss=}\t{account.profit_target=}")
 
         # wait for macd confirmation for short
@@ -174,11 +181,8 @@ def logic(account, lookback):  # Logic function to be used for each time interva
                 account.status = State.SHORT
 
                 # placeholder stoploss
-                stoploss_diff = min(
-                    abs(price-find_swing(lookback, high_low='low'))/price, 0.0015)
-                # stoploss_diff = 0.0015
-                account.stoploss = price*(1+stoploss_diff)
-                account.profit_target = price*(1 - stoploss_diff*3)
+                account.stoploss = price*(1+STOPLOSS)
+                account.profit_target = price*(1 - STOPLOSS*2)
                 print(f"\t{account.stoploss=}\t{account.profit_target=}")
 
 
@@ -279,7 +283,9 @@ def preprocess_data(list_of_stocks):
 def plot_time_series(file):
     df = pd.read_csv(file)
 
-    df.plot(x='date', y=['close', 'sto_k', 'sto_d'])
+    df['y1'] = df['close'].rolling(window=20).mean()
+    df['y2'] = df['close'] - df['y1']
+    df.plot(x='date', y=['y2'])
     plt.show()
 
 
