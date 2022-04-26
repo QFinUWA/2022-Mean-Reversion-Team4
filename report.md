@@ -1,6 +1,36 @@
+---
+start-page: 2
+---
 
+\title{Mean Reversion Trading Algorithm}
+\author{Isaac Bergl, Zach Manson, Kai Marns-Morris, Talin Taparia}
+\date{April 2022}
+\begin{titlepage}
+    \centering
+    \vfill
+    \maketitle
+    \thispagestyle{empty}
+    \vfill
+    \rule{50mm}{0.5pt}
+    \vfill
+    \includegraphics[width=60mm]{./images/Black_Without_Patter.png}
+    \vfill
+    \includegraphics[width=60mm]{./images/IMC__Trading_logo_Full_color.png}
+    \vfill
+
+\textit{A project completed by the Trading Team in conjunction with}
+
+The University of Western Australia
+
+Quantitative Finance UWA
+\end{titlepage}
+
+
+\newpage
 
 # Mean Reversion Trading Report
+
+
 
 ## Introduction
 
@@ -45,7 +75,7 @@ In our algorithm these two moving averages converging is used as a signal to ent
 
 ## Algorithm
 
-### Core
+### Core Logic
 
 Our algorithm implemented all three of these indicators to determine trading decisions, each of them used for different purposes.  The hybrid nature of this algorithm was designed with the intent to allow it to more discerning than any of the indicators used individually, and result in a higher win-rate.
 
@@ -55,7 +85,9 @@ To confirm the trend, our algorithm implements RSI as a trend confirmation indic
 
 If the Stochastic Oscillator is below 20%, indicating a stock is oversold, and the RSI is above 50%, indicating an uptrend, the algorithm waits for the MACD to cross its signal line.  If the MACD crosses the signal line before the Stochastic Oscillator shifts to indicating overbought, the algorithms enters a long position on the stock.
 
-The inverse is true for short positions.  If the Stochastic Oscillator is above 80%, indicating a stock is overbought, and the RSI is below 50%, indicating a downtrend, the algorithm waits for MACD to cross its signal line.  If the MACD crosses the signal line before the Stochastic Oscillator shifts to indicating oversold,the algorithm enters a short position on the stock.
+The inverse is true for short positions.  If the Stochastic Oscillator is above 80%, indicating a stock is overbought, and the RSI is below 50%, indicating a downtrend, the algorithm waits for MACD to cross its signal line.  If the MACD crosses the signal line before the Stochastic Oscillator shifts to indicating oversold, the algorithm enters a short position on the stock.
+
+### Stoploss and Profit Target
 
 PUT EXPLANATION OF STOPLOSS AND PROFIT TARGET MATH HERE
 
@@ -66,3 +98,75 @@ stoploss math here
 \end{center}
 
 ### Combined Implementation
+
+This core logic has a minor impact on an account when used alone as a trading algorithm.  Due to the stringent conditions required for it to enter the market, and the relatively small stoploss and profit target margin do not allow for large shifts in account value.  Due to this, in our testing, the core logic on its own results in net profits from -10% to 10% of the initial investment.
+
+To amplify the effects of this, we suggest that this logic be combined with another trading stratey that is fallen back on when the core logic doesn't detect any signicant mean dispersion.
+
+In our submitted implementation, we combined our core logic with a simple buy and hold strategy that was defaulted to when no mean dispersion was detected.  While rendered the long position entry logic redundant, we have included it in our source code to show how it may be used if the fallback strategy were different.  This implementation in effect holds a long position until it detects a mean dispersion, enters a short position accordingly, and returns to a long position once the mean reversion has occured or stoploss triggered.
+
+This combined implementation resulted in consistent profitability with the core mean reversion logic providing a wider ranger of results, sometimes falling short of simple buy and hold and other times pushing beyond it.
+
+\pagebreak
+## Testing
+
+Our algorithm preprocessing flattens all data to 30 minute periods which we found to be optimal in our testing.  Our default parameters used a 14 period lookback window for the Stochastic Oscillator and RSI, and a 26-12-9 setting for MACD.  
+
+### GOOG 2020-04-30 to 2022-03-21 1 Minute Intervals
+
+![GOOG](plots/GOOG.png) \
+
+```
+Buy and Hold : 92.95%
+Net Profit   : 4647.56
+Strategy     : 68.74%
+Net Profit   : 3436.96
+Longs        : 23
+Sells        : 22
+Shorts       : 22
+Covers       : 23
+--------------------
+Total Trades : 90
+```
+
+### AAPL 2020-03-24 to 2022-02-12 1 Minute Intervals
+
+![AAPL](plots/AAPL.png) \
+
+```
+Buy and Hold : 168.75%
+Net Profit   : 8437.4
+Strategy     : 118.12%
+Net Profit   : 5906.12
+Longs        : 34
+Sells        : 33
+Shorts       : 33
+Covers       : 33
+--------------------
+Total Trades : 133
+```
+
+### TSLA 2020-03-01 to 2022-01-20 1 Minute Intervals
+
+![TSLA](plots/TSLA.png) \
+
+```
+Buy and Hold : 502.32%
+Net Profit   : 25116.22
+Strategy     : 677.86%
+Net Profit   : 33892.99
+Longs        : 31
+Sells        : 30
+Shorts       : 30
+Covers       : 32
+--------------------
+Total Trades : 123
+```
+
+### Potential Improvements
+
+Our algorithm is limited by size of the stoploss and profit targets, and in our testing we found various stoploss parameters were favourable under different condition.  Allowing the stoploss parameter to be variable depending on wider conditions could result in much higher returns.
+
+Another potential improvement is altering the stoploss to be dynamic per market position.  Having the stoploss move in response to market movements could limit losses further and result in higher returns.
+
+FURTHER IMPROVEMENTS
