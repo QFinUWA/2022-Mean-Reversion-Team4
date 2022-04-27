@@ -28,9 +28,11 @@ Quantitative Finance UWA
 
 \newpage
 
-# Mean Reversion Trading Report
+# Mean Reversion Trading Algorithm
 
+Project completed by Team 4 (Meme Reversion) in April 2022, as part of the Semester 1 2022 Project by the QFin UWA Trading Team.
 
+Team 4 (Meme Reversion) members: Isaac Bergl, Zach Manson, Kai Marns-Morris, Talin Taparia
 
 ## Introduction
 
@@ -83,21 +85,22 @@ The slow variant of the Stochastic Oscillator is used as a measure of mean dispe
 
 To confirm the trend, our algorithm implements RSI as a trend confirmation indicator.  Rather than using RSI to determine overbought and oversold signals like the Stochastic Oscillator, our algorithm uses it to determine the overall direction of the stock in the form of uptrends or downtrends.  In terms of the RSI value, our algorithm treats below 50% as a downtrend and above 50% as an uptrend.
 
-If the Stochastic Oscillator is below 20%, indicating a stock is oversold, and the RSI is above 50%, indicating an uptrend, the algorithm waits for the MACD to cross its signal line.  If the MACD crosses the signal line before the Stochastic Oscillator shifts to indicating overbought, the algorithms enters a long position on the stock.
+If the Stochastic Oscillator is below 20% (indicating a stock is oversold), the RSI is above 50% (indicating an uptrend), and the price is below a 100-day exponential moving average, the algorithm waits for a buy trigger.  If the RSI hits 40 or the MACD crosses the signal line before the Stochastic Oscillator shifts to indicating overbought, the algorithms enters a long position on the stock.
 
-The inverse is true for short positions.  If the Stochastic Oscillator is above 80%, indicating a stock is overbought, and the RSI is below 50%, indicating a downtrend, the algorithm waits for MACD to cross its signal line.  If the MACD crosses the signal line before the Stochastic Oscillator shifts to indicating oversold, the algorithm enters a short position on the stock.
+The inverse is true for short positions.  If the Stochastic Oscillator is above 80% (indicating a stock is overbought), the RSI is below 50% (indicating a downtrend), and the price is above at 100-day exponential moving average, the algorithm waits for a buy trigger.  If the RSI hits 60 or the MACD crosses the signal line before the Stochastic Oscillator shifts to indicating oversold, the algorithm enters a short position on the stock.
 
 ### Stoploss and Profit Target
 
 The stoploss and profit target are implemented as the price points at which we should exit our trade. The formula for the stoploss (*SL*) and take profit (*TP*) at \begin{math}t=0\end{math} from when the position is entered depend on the hyperparamter *STOPLOSS* (set to 0.0025 for demonstrative purposes) and is as follows for shorting:
 
 \begin{center}
-\begin{math}
-    \begin{align}
-    SL_0 &= PRICE_0*(1+STOPLOSS)
+\begin{equation}
+    \begin{aligned}
+    SL_0 &= PRICE_0*(1+STOPLOSS) \\
     TP_0 &= PRICE_0*(1-2*STOPLOSS) 
-    \end{align}
-\end{math}
+    \end{aligned}
+\end{equation}
+\end{center}
 
 Note that for long positions the plus and minus signs would be reversed. 
 
@@ -109,66 +112,69 @@ This core logic has a minor impact on an account when used alone as a trading al
 
 To amplify the effects of this, we suggest that this logic be combined with another trading stratey that is fallen back on when the core logic doesn't detect any signicant mean dispersion.
 
-In our submitted implementation, we combined our core logic with a simple buy and hold strategy that was defaulted to when no mean dispersion was detected.  While rendered the long position entry logic redundant, we have included it in our source code to show how it may be used if the fallback strategy were different.  This implementation in effect holds a long position until it detects a mean dispersion, enters a short position accordingly, and returns to a long position once the mean reversion has occured or stoploss triggered.
+In our submitted implementation, we combined our core logic with a simple buy and hold strategy that was defaulted to when no mean dispersion was detected, and the core logic would otherwise be out of the market.  While rendered the long position entry logic indistinguishable from default behaviour, we have included it in our source code to show how it may be used if the fallback strategy were different.  This implementation in effect holds a long position until it detects a mean dispersion, enters a short position accordingly, and returns to a long position once the mean reversion has occured or stoploss triggered.
 
 This combined implementation resulted in consistent profitability with the core mean reversion logic providing a wider ranger of results, sometimes falling short of simple buy and hold and other times pushing beyond it.
 
 \pagebreak
 ## Testing
 
-Our algorithm preprocessing flattens all data to 30 minute periods which we found to be optimal in our testing.  Our default parameters used a 14 period lookback window for the Stochastic Oscillator and RSI, and a 26-12-9 setting for MACD.  
+Our algorithm preprocessing flattens all data to 30 minute periods which we found to be optimal in our testing.  Our default parameters used a 14-period lookback window for the Stochastic Oscillator and RSI, and a 26-12-9 setting for MACD.  The long-term EMA used used a 100-period lookback.
 
 ### GOOG 2020-04-30 to 2022-03-21 1 Minute Intervals
 
-![GOOG](plots/GOOG.png) \
+![GOOG](images/GOOG.png) \
 
 ```
 Buy and Hold : 92.95%
 Net Profit   : 4647.56
-Strategy     : 68.74%
-Net Profit   : 3436.96
-Longs        : 23
-Sells        : 22
-Shorts       : 22
-Covers       : 23
+Strategy     : 59.58%
+Net Profit   : 2978.85
+Longs        : 19
+Sells        : 18
+Shorts       : 18
+Covers       : 18
 --------------------
-Total Trades : 90
+Total Trades : 73
 ```
 
+\newpage
 ### AAPL 2020-03-24 to 2022-02-12 1 Minute Intervals
 
-![AAPL](plots/AAPL.png) \
+![AAPL](images/AAPL.png) \
 
 ```
 Buy and Hold : 168.75%
 Net Profit   : 8437.4
-Strategy     : 118.12%
-Net Profit   : 5906.12
-Longs        : 34
-Sells        : 33
-Shorts       : 33
-Covers       : 33
+Strategy     : 151.4%
+Net Profit   : 7570.11
+Longs        : 28
+Sells        : 27
+Shorts       : 26
+Covers       : 26
 --------------------
-Total Trades : 133
+Total Trades : 107
 ```
 
+\newpage
 ### TSLA 2020-03-01 to 2022-01-20 1 Minute Intervals
 
-![TSLA](plots/TSLA.png) \
+![TSLA](images/TSLA.png) \
 
 ```
 Buy and Hold : 502.32%
 Net Profit   : 25116.22
-Strategy     : 677.86%
-Net Profit   : 33892.99
-Longs        : 31
-Sells        : 30
-Shorts       : 30
-Covers       : 32
+Strategy     : 734.82%
+Net Profit   : 36740.77
+Longs        : 23
+Sells        : 22
+Shorts       : 22
+Covers       : 22
 --------------------
-Total Trades : 123
+Total Trades : 89
 ```
 
+\newpage
 ### Potential Improvements
 
 Firstly, we could make major improvements to the stoploss. As implemented the stoploss is calulated as a constant percentage of the price at purchase. This flat rate could be optimised to a specific stock in practice, and from testing certain values worked better for some stocks and worse for others. Furthermore the stoploss could implement a wide array of market measures to dynamically fit the market conditions, which could limit losses further and result in higher resturns.
@@ -178,6 +184,3 @@ The update rule for the stoploss could be implemented in a similar way to the ta
 Secondly, the logic we chose to investigate used three different tried and tested market indicators, however the rules for when to enter or exit a position was arbitary. A future improvement could be to use each market measure and combine them into a single value between -1 and 1 that incidicates when to buy and sell based on mean reversion. Each indicator would be weighted by a machine learning model that optimises the weights for a specific stock. 
 
 Lastly, there are multiple hyperparamters to our algorithm. For example, the MACD moving average window sizes, thresholds for RSI, STOPLOSS percentage, stochastic threshold, etc. The values presented in our algorithm were picked based on common best practice - however these parameters should be optimsed for a specific asset. This can be done through manual testing, further financial analysis or as an optimisation task for machine learning. 
-
-# I feel like this can be reworded and worked in somewhere. 
-In our implementation, we used a default strategy when our algorithm was out of the market. We chose buy-and-hold as our default strategy, however this is equivalent to taking a long position. As our algorithm should be used as an indicator ontop of some other strategy about weather to buy or to sell at a certain time, when we chose to buy this would be unnoticable as it is the same as the default strategy.  
