@@ -56,6 +56,7 @@ The \begin{math}K_{fast}\end{math} value is used in conjuction with a 3 period m
 
 In our algorithm we used a 14 day lookback period.
 
+\newpage
 ### Relative Strength Index
 
 The Relative Strength Indicator is another technical indicator used to evaluate overbought and oversold stocks.  While in this regard it is similar to the Stochastic Oscillator, in our algorithm we used it to indicate overall momentum of the stock rather than as an indicator of mean reversion.  The indicator is based on the average gain and loss of a stock over a set lookback period, resulting in an index between 0 and 100.
@@ -85,20 +86,19 @@ The slow variant of the Stochastic Oscillator is used as a measure of mean dispe
 
 To confirm the trend, our algorithm implements RSI as a trend confirmation indicator.  Rather than using RSI to determine overbought and oversold signals like the Stochastic Oscillator, our algorithm uses it to determine the overall direction of the stock in the form of uptrends or downtrends.  In terms of the RSI value, our algorithm treats below 50% as a downtrend and above 50% as an uptrend.
 
-If the Stochastic Oscillator is below 20% (indicating a stock is oversold), the RSI is above 50% (indicating an uptrend), and the price is below a 100-day exponential moving average, the algorithm waits for a buy trigger.  If the RSI hits 40 or the MACD crosses the signal line before the Stochastic Oscillator shifts to indicating overbought, the algorithms enters a long position on the stock.
+If the Stochastic Oscillator is below 20% (indicating a stock is oversold), the RSI is above 50% (indicating an uptrend), and the price is below a 100-day exponential moving average, the algorithm waits for a buy trigger.  If the RSI hits 40% or the MACD crosses the signal line before the Stochastic Oscillator shifts to indicating overbought, the algorithms enters a long position on the stock.
 
-The inverse is true for short positions.  If the Stochastic Oscillator is above 80% (indicating a stock is overbought), the RSI is below 50% (indicating a downtrend), and the price is above at 100-day exponential moving average, the algorithm waits for a buy trigger.  If the RSI hits 60 or the MACD crosses the signal line before the Stochastic Oscillator shifts to indicating oversold, the algorithm enters a short position on the stock.
+The inverse is true for short positions.  If the Stochastic Oscillator is above 80% (indicating a stock is overbought), the RSI is below 50% (indicating a downtrend), and the price is above at 100-day exponential moving average, the algorithm waits for a buy trigger.  If the RSI hits 60% or the MACD crosses the signal line before the Stochastic Oscillator shifts to indicating oversold, the algorithm enters a short position on the stock.
 
-### Stoploss and Profit Target
+From any given position, the algorithm closes the position after the stock is determined to have reverted to the mean.  This occurs for short positions when RSI hits 60% or the MACD crosses the signal line again.  This occurs for short positions when RSI hits 40% or the MACD crosses the signal line again.  
 
-The stoploss and profit target are implemented as the price points at which we should exit our trade. The formula for the stoploss (*SL*) and take profit (*TP*) at \begin{math}t=0\end{math} from when the position is entered depend on the hyperparamter *STOPLOSS* (set to 0.0025 for demonstrative purposes) and is as follows for shorting:
+### Stoploss
+
+The stoploss is implemented as the price points at which we should exit our trade. The formula for the stoploss (*SL*) at \begin{math}t=0\end{math} from when the position is entered depend on the hyperparamter *STOPLOSS* (set to 0.0025 for demonstrative purposes) and is as follows for shorting:
 
 \begin{center}
 \begin{equation}
-    \begin{aligned}
-    SL_0 &= PRICE_0*(1+STOPLOSS) \\
-    TP_0 &= PRICE_0*(1-2*STOPLOSS) 
-    \end{aligned}
+    SL_0 = PRICE_0\times(1+STOPLOSS)
 \end{equation}
 \end{center}
 
@@ -115,6 +115,17 @@ To amplify the effects of this, we suggest that this logic be combined with anot
 In our submitted implementation, we combined our core logic with a simple buy and hold strategy that was defaulted to when no mean dispersion was detected, and the core logic would otherwise be out of the market.  While rendered the long position entry logic indistinguishable from default behaviour, we have included it in our source code to show how it may be used if the fallback strategy were different.  This implementation in effect holds a long position until it detects a mean dispersion, enters a short position accordingly, and returns to a long position once the mean reversion has occured or stoploss triggered.
 
 This combined implementation resulted in consistent profitability with the core mean reversion logic providing a wider ranger of results, sometimes falling short of simple buy and hold and other times pushing beyond it.
+
+### Potential Improvements
+
+Firstly, we could make major improvements to the stoploss. As implemented the stoploss is calulated as a constant percentage of the price at purchase. This flat rate could be optimised to a specific stock in practice, and from testing certain values worked better for some stocks and worse for others. Furthermore the stoploss could implement a wide array of market measures to dynamically fit the market conditions, which could limit losses further and result in higher resturns.
+
+The update rule for the stoploss could be implemented in a similar way to the takeprofit - however in our testing it gave negative improvements. Currently the only way the short position exits is if it hits the takeprofit or the stoploss - however the need for a takeprofit is debatable - as long as the stoploss is non-decreasing we can always realise our profits.  
+
+Secondly, the logic we chose to investigate used three different tried and tested market indicators, however the rules for when to enter or exit a position was arbitary. A future improvement could be to use each market measure and combine them into a single value between -1 and 1 that incidicates when to buy and sell based on mean reversion. Each indicator would be weighted by a machine learning model that optimises the weights for a specific stock. 
+
+Lastly, there are multiple hyperparamters to our algorithm. For example, the MACD moving average window sizes, thresholds for RSI, STOPLOSS percentage, stochastic threshold, etc. The values presented in our algorithm were picked based on common best practice - however these parameters should be optimsed for a specific asset. This can be done through manual testing, further financial analysis or as an optimisation task for machine learning. 
+
 
 \pagebreak
 ## Testing
@@ -175,12 +186,3 @@ Total Trades : 89
 ```
 
 \newpage
-### Potential Improvements
-
-Firstly, we could make major improvements to the stoploss. As implemented the stoploss is calulated as a constant percentage of the price at purchase. This flat rate could be optimised to a specific stock in practice, and from testing certain values worked better for some stocks and worse for others. Furthermore the stoploss could implement a wide array of market measures to dynamically fit the market conditions, which could limit losses further and result in higher resturns.
-
-The update rule for the stoploss could be implemented in a similar way to the takeprofit - however in our testing it gave negative improvements. Currently the only way the short position exits is if it hits the takeprofit or the stoploss - however the need for a takeprofit is debatable - as long as the stoploss is non-decreasing we can always realise our profits.  
-
-Secondly, the logic we chose to investigate used three different tried and tested market indicators, however the rules for when to enter or exit a position was arbitary. A future improvement could be to use each market measure and combine them into a single value between -1 and 1 that incidicates when to buy and sell based on mean reversion. Each indicator would be weighted by a machine learning model that optimises the weights for a specific stock. 
-
-Lastly, there are multiple hyperparamters to our algorithm. For example, the MACD moving average window sizes, thresholds for RSI, STOPLOSS percentage, stochastic threshold, etc. The values presented in our algorithm were picked based on common best practice - however these parameters should be optimsed for a specific asset. This can be done through manual testing, further financial analysis or as an optimisation task for machine learning. 
