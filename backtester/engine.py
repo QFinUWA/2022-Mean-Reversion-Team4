@@ -72,7 +72,7 @@ class backtest():
             index += 1
             self.account.purge_positions()
 
-        print("Backtest completed in {0} seconds".format(
+        print("\nBacktest completed in {0} seconds".format(
             time.time() - starttime))
 
         # ------------------------------------------------------------

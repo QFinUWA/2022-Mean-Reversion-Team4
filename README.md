@@ -12,7 +12,7 @@ Install dependencies:
 
 Run:
 
-`python momentum_algorithm.py`
+`python mean_reversion.py`
 
 Datasets used can be changed within momentum_algorithm.py.
 Download extra data (Optional) using API_Interface.py
@@ -25,15 +25,15 @@ Download extra data (Optional) using API_Interface.py
  - [x] Figure out regular meeting time (Monday 14:00 each week)
  - [x] Come up with actual roadmap
  - [ ] Determine mean reversion strategy
- - [ ] Determine meme reversion strategy
-   - This could be for very low volume stocks, or only apply for edge cases
-   - Or just completely seperate module
- - [ ] Develop prototype algorithm
- - [ ] Write optimisation testing scripts
- - [ ] Optimise parameters
- - [ ] ???
- - [ ] Profit
- - [ ] Write report
+ - [x] ~~Determine meme reversion strategy~~ its all meme reversion
+   - ~~This could be for very low volume stocks, or only apply for edge cases~~
+   - ~~Or just completely seperate module~~
+ - [x] Develop prototype algorithm
+ - [ ] ~~Write optimisation testing scripts~~ rip
+ - [x] Optimise parameters
+ - [x] ???
+ - [x] Profit
+ - [x] Write report
 
 ## Useful Resources:
 

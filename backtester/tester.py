@@ -19,6 +19,7 @@ def backtest_stock(results, stock, logic, chart):
     # Start the backtest with the provided logic function
     backtest.start(5000, logic)
     lock.acquire()
+    print(f"{stock=}")
     data = backtest.results()  # Get the results of the backtest
     # Add the stock name to the results for easy comparison
     data.extend([stock])
