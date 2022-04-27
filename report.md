@@ -76,6 +76,68 @@ Moving Average Convergence Divergence (MACD) is a momentum indicator based on th
 
 In our algorithm these two moving averages converging is used as a signal to enter the market, when previous conditions have been met. We used a 26-day period and a 12-day period for fast and slow metrics, and a 9-day period for the signal line, based on best common practice.
 
+## Mean Reverting Test
+
+### Augmented Dickey Fuller - ADF
+
+The ADF is a statistical and econometric formula used to check if a given time-series is stationary or not, this can also be used to test if our given stock data( which is a time series data) is stationary or mean reverting. The test algorithm checks the value in our case the 'close' price against the time index, and returns a p-value, if p-value is below 0.05( normal 5% significance number) then the time series is mean reverting.
+
+TSLA : p-value: 0.602630490443652
+AAPL : p-value: 0.26725730053984714
+GOOG : p-value: 0.5653012834606965
+
+The resultant values indicate that all 3 stocks data are mean reverting, but the degree of mean reversion of apple is less.
+
+### Hurst Exponent 
+
+The hurst exponent value, is another test to check if stock is mean reverting or not and also the degree of said mean reversion. The best method to check mean reversion is to get the hurst_exponent value with increasing lag times, if the value decrease as the lag increases then the stock data is mean reverting.
+
+        1) TSLA 
+Hurst exponent with 5 lags: 0.4799
+Hurst exponent with 10 lags: 0.4831
+Hurst exponent with 20 lags: 0.4919
+Hurst exponent with 100 lags: 0.5061
+Hurst exponent with 300 lags: 0.4970
+Hurst exponent with 500 lags: 0.4963
+Hurst exponent with 1000 lags: 0.4832
+Hurst exponent with 2000 lags: 0.4608
+Hurst exponent with 2700 lags: 0.4390
+Hurst exponent with 3500 lags: 0.4119
+Hurst exponent with 5000 lags: 0.3777
+
+        2) AAPL
+Hurst exponent with 5 lags: 0.4842
+Hurst exponent with 10 lags: 0.4885
+Hurst exponent with 20 lags: 0.4879
+Hurst exponent with 100 lags: 0.4882
+Hurst exponent with 300 lags: 0.4701
+Hurst exponent with 500 lags: 0.4644
+Hurst exponent with 1000 lags: 0.4567
+Hurst exponent with 2000 lags: 0.4251
+Hurst exponent with 2700 lags: 0.3860
+Hurst exponent with 3500 lags: 0.3537
+Hurst exponent with 5000 lags: 0.3153
+
+        3) GOOG
+Hurst exponent with 5 lags: 0.4961
+Hurst exponent with 10 lags: 0.5032
+Hurst exponent with 20 lags: 0.5073
+Hurst exponent with 100 lags: 0.4891
+Hurst exponent with 300 lags: 0.4405
+Hurst exponent with 500 lags: 0.4073
+Hurst exponent with 1000 lags: 0.3754
+Hurst exponent with 2000 lags: 0.4134
+Hurst exponent with 2700 lags: 0.4277
+Hurst exponent with 3500 lags: 0.4277
+Hurst exponent with 5000 lags: 0.3724
+
+
+This test results show us that 'Google' is not that mean reverting, as the value is range bound until the last lag-time. But in the case of TSLA and AAPL, the values are only similar in the early lag-times( which are not that spread).
+
+
+Hence based on the 2 tests we can observe that all 3 stocks are mean reverting, but GOOG shows less degree in the Hurst test and AAPL due to lower p-value as less degree in the ADF test. These test can also act as an indicator to the performance of any mean reversion formula/ strategy for trading.
+
+
 ## Algorithm
 
 ### Core Logic
@@ -123,6 +185,8 @@ Firstly, we could make major improvements to the stoploss. As implemented the st
 The update rule for the stoploss could be implemented in a similar way to the takeprofit - however in our testing it gave negative improvements. Currently the only way the short position exits is if it hits the takeprofit or the stoploss - however the need for a takeprofit is debatable - as long as the stoploss is non-decreasing we can always realise our profits.  
 
 Secondly, the logic we chose to investigate used three different tried and tested market indicators, however the rules for when to enter or exit a position was arbitary. A future improvement could be to use each market measure and combine them into a single value between -1 and 1 that incidicates when to buy and sell based on mean reversion. Each indicator would be weighted by a machine learning model that optimises the weights for a specific stock. 
+
+Moreover, in our startegy we relied on technichal indicators as the fundamentals cannot indicate about oversold or overbought market sentiment. But, this causes limitations as without fundamentals we cannot predict the direction of the trendline. In mean reversion especially in automated strategy with strict stoploss, one needs a way to check the direction of tha base trendline( upwards, flat, downwards) because otherwise the win rate reduces even if the underlying strategy was accurate. 
 
 Lastly, there are multiple hyperparamters to our algorithm. For example, the MACD moving average window sizes, thresholds for RSI, STOPLOSS percentage, stochastic threshold, etc. The values presented in our algorithm were picked based on common best practice - however these parameters should be optimsed for a specific asset. This can be done through manual testing, further financial analysis or as an optimisation task for machine learning. 
 
